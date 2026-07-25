@@ -19,3 +19,6 @@ paper/*.out
 paper/*.toc
 paper/*.bbl
 paper/*.blg
+
+Guide.md
+SKILL.md

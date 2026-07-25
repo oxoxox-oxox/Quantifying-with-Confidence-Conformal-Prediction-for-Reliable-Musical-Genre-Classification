@@ -1,0 +1,56 @@
+%% ===========================================================================
+%%  6. Conclusion
+%%  Quantifying with Confidence: Conformal Prediction for Reliable Musical
+%%  Style Similarity Ranking
+%% ===========================================================================
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented a framework that integrates self-supervised audio embeddings
+with conformal prediction to produce statistically rigorous prediction sets
+for musical style similarity assessment. By extracting genre-discriminative
+1024-dimensional embeddings from MERT-v1-330M, constructing prototype
+centroids from a reference set, and calibrating nonconformity scores on a
+held-out calibration set, our method produces prediction sets
+$\Gamma_{\alpha}(x)$ that satisfy the marginal coverage guarantee
+$\mathbb{P}(y_{\text{test}} \in \Gamma_{\alpha}(x)) \geq 1 - \alpha$ under
+the sole assumption of exchangeability.
+
+Our experiments on the GTZAN dataset demonstrate that this guarantee holds in
+practice. At significance levels $\alpha = 0.01$, $0.05$, and $0.10$,
+conformal prediction achieves empirical coverages of $0.993$, $0.955$, and
+$0.910$, respectively, all tightly matching or exceeding the nominal targets.
+In contrast, a Gaussian approximation baseline---the default uncertainty
+quantification method in many machine learning pipelines---undercovers
+substantially at high confidence ($0.965$ vs.\ target $0.99$ at
+$\alpha = 0.01$), confirming that the heavy-tailed nature of perceptual
+similarity distributions renders parametric assumptions unsafe. Bootstrap
+resampling, while empirically competitive, lacks the finite-sample validity
+guarantee that distinguishes CP and incurs approximately three orders of
+magnitude higher computational cost.
+
+The average prediction set sizes ($8.51$, $6.69$, and $5.40$ at
+$\alpha = 0.01$, $0.05$, and $0.10$, respectively) reflect a principled
+trade-off: CP pays an ``uncertainty premium'' in set size to deliver its
+distribution-free coverage guarantee, and our analysis of the GTZAN label
+space suggests that a substantial portion of this premium is attributable to
+genuine stylistic ambiguity among perceptually adjacent genres rather than
+to any deficiency of the method.
+
+We believe this work opens several avenues for future research. The
+application of CP to filtering and quality assessment of AI-generated music
+is a natural next step, with the coverage guarantee providing a formal
+justification for rejection decisions. Extending the framework to multimodal
+style representations (audio + text) and designing adaptive nonconformity
+scores that account for intra-genre variability could yield tighter prediction
+sets. Finally, as self-supervised music models continue to scale in
+capacity and training data, the embedding spaces they produce will grow
+increasingly discriminative, further narrowing the gap between coverage
+guarantee and practical informativeness.
+
+In summary, quantifying musical style similarity with confidence is both
+feasible and principled. Conformal prediction bridges the gap between the
+rich representational power of self-supervised audio models and the
+statistical rigor required for trustworthy downstream decision-making in
+music information retrieval.

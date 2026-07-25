@@ -1,0 +1,267 @@
+%% ===========================================================================
+%%  3. Methodology
+%%  Quantifying with Confidence: Conformal Prediction for Reliable Musical
+%%  Style Similarity Ranking
+%% ===========================================================================
+
+\section{Methodology}
+\label{sec:method}
+
+We present a framework that integrates self-supervised audio embeddings with
+conformal prediction to produce statistically rigorous prediction sets for
+musical style classification. The pipeline consists of three stages:
+(1)~embedding extraction via MERT, (2)~construction of genre prototype
+centroids from a reference set, and (3)~conformal calibration and prediction
+set formation. Figure~\ref{fig:pipeline} provides a schematic overview.
+
+\subsection{Problem Formulation}
+
+Let $\mathcal{D} = \{ (x_i, y_i) \}_{i=1}^{N}$ be a dataset of $N$ audio
+tracks, where $x_i$ denotes the raw waveform and $y_i \in \mathcal{Y} =
+\{1, 2, \ldots, K\}$ denotes the genre label from a set of $K$ classes.
+Our goal is to construct, for any test track $x_{\text{test}}$, a
+prediction set $\Gamma_{\alpha}(x_{\text{test}}) \subseteq \mathcal{Y}$
+such that
+\begin{equation}
+  \mathbb{P}\bigl( y_{\text{test}} \in
+  \Gamma_{\alpha}(x_{\text{test}}) \bigr) \geq 1 - \alpha,
+  \label{eq:coverage_guarantee}
+\end{equation}
+where $\alpha \in (0, 1)$ is a user-specified significance level and the
+probability is taken over the random draw of both calibration and test data.
+The guarantee in Equation~\ref{eq:coverage_guarantee} holds under the sole
+assumption that the calibration and test points are exchangeable---a condition
+satisfied by any i.i.d.\ data split.
+
+Importantly, the prediction set is \emph{adaptive}: it may contain one class
+(signalling high confidence), multiple classes (signalling ambiguity), or
+in rare cases, be empty (signalling an out-of-distribution input). The
+expected size of $\Gamma_{\alpha}(x)$ quantifies the \emph{informativeness}
+of the prediction system: smaller sets indicate sharper, more confident
+predictions.
+
+\subsection{MERT Embedding Extraction}
+
+We employ MERT-v1-330M~\cite{li2023mert} as the audio representation model.
+MERT is a 24-layer Transformer encoder built on the Wav2Vec~2.0
+architecture~\cite{baevski2020wav2vec2}, with a hidden dimension of 1024 and
+330 million parameters. It was pre-trained on 160,000 hours of music using a
+masked language modeling (MLM) objective, with two complementary acoustic
+teachers providing pseudo-labels for the masked prediction task:
+(1)~a Residual Vector Quantization VAE (RVQ-VAE)~\cite{defossez2022encodec}
+that captures fine-grained acoustic and timbral detail, and (2)~a Constant-Q
+Transform (CQT)-based model that supplies harmonic and pitch-structure
+supervision.
+
+For each audio track $x$, we apply the following pre-processing and extraction
+pipeline:
+
+\begin{enumerate}[leftmargin=*,itemsep=1pt]
+    \item \textbf{Resampling and mono conversion.} The waveform is resampled
+    to MERT's native sampling rate of 24\,kHz and converted to mono by
+    averaging stereo channels. Let $\mathbf{x} \in \mathbb{R}^{T}$ denote the
+    resulting single-channel signal, where $T$ is the number of samples.
+    \item \textbf{Segmentation.} The signal is split into fixed-length
+    windows of $L = 10$\,s with a hop length of $H = 5$\,s (50\% overlap).
+    Each segment $\mathbf{x}^{(s)} \in \mathbb{R}^{L \cdot 24000}$ is
+    processed independently. Overlapping windows ensure that boundary effects
+    near segment edges do not dominate the final representation.
+    \item \textbf{Forward pass and pooling.} Each segment is fed through
+    MERT to obtain hidden states from all 25 layers (embedding layer + 24
+    Transformer layers). Let
+    $\mathbf{h}_\ell^{(s)} \in \mathbb{R}^{T_s \times 1024}$ denote the
+    output of layer $\ell$ for segment $s$, where $T_s$ is the number of
+    time steps determined by the convolutional feature encoder's stride.
+    We extract the \emph{last} hidden layer ($\ell = L$), apply mean
+    pooling over the time dimension, and average across all $S$ segments:
+    \begin{equation}
+      \mathbf{e}_x = \frac{1}{S} \sum_{s=1}^{S}
+      \frac{1}{T_s} \sum_{t=1}^{T_s} \mathbf{h}_L^{(s)}[t] \in
+      \mathbb{R}^{1024}.
+      \label{eq:embedding}
+    \end{equation}
+    \item \textbf{Normalization.} The resulting embedding $\mathbf{e}_x$ is
+    $\ell_2$-normalized to unit length, so that cosine similarity reduces
+    to the inner product $\langle \mathbf{e}_x, \mathbf{e}_{x'} \rangle$.
+\end{enumerate}
+
+The output of this pipeline is a single fixed-dimensional embedding
+$\mathbf{e}_x \in \mathbb{R}^{1024}$ for each track. In our experiments
+on the GTZAN dataset, processing 999~thirty-second tracks with this
+procedure requires approximately nine minutes on an NVIDIA RTX~5070 GPU.
+
+\subsection{Conformal Prediction for Genre Classification}
+
+We adopt the inductive (split) conformal prediction framework, which divides
+the data into three disjoint subsets: a \emph{reference set}
+$\mathcal{D}_{\text{ref}}$, a \emph{calibration set}
+$\mathcal{D}_{\text{cal}}$, and a \emph{test set}
+$\mathcal{D}_{\text{test}}$. The reference set is used to construct
+class representations; the calibration set is used to determine the
+prediction threshold; and the test set is used for evaluation.
+
+\subsubsection{Dataset Partitioning}
+
+We partition $\mathcal{D}$ using stratified sampling by genre, with a
+60/20/20 split:
+\[
+  \mathcal{D} = \mathcal{D}_{\text{ref}} \cup \mathcal{D}_{\text{cal}}
+  \cup \mathcal{D}_{\text{test}}, \quad
+  \frac{|\mathcal{D}_{\text{ref}}|}{|\mathcal{D}|} \approx 0.6, \;
+  \frac{|\mathcal{D}_{\text{cal}}|}{|\mathcal{D}|} \approx 0.2, \;
+  \frac{|\mathcal{D}_{\text{test}}|}{|\mathcal{D}|} \approx 0.2.
+\]
+Stratification ensures that each genre is proportionally represented across
+all three subsets, preventing class imbalance from distorting the calibration
+process. For each genre $k$, the reference subset contains the largest number
+of examples, providing a stable estimate of the prototype centroid.
+
+\subsubsection{Genre Prototype Centroids}
+
+For each genre $k \in \mathcal{Y}$, we construct a \emph{prototype centroid}
+$\boldsymbol{\mu}_k$ by averaging the embeddings of all reference tracks
+belonging to that genre:
+\begin{equation}
+  \boldsymbol{\mu}_k = \frac{1}{|\mathcal{D}_{\text{ref}, k}|}
+  \sum_{(x, y) \in \mathcal{D}_{\text{ref}, k}} \mathbf{e}_x,
+  \label{eq:centroid}
+\end{equation}
+where $\mathcal{D}_{\text{ref}, k} = \{ (x, y) \in \mathcal{D}_{\text{ref}}
+: y = k \}$. The centroid can be interpreted as the ``prototypical'' musical
+style of genre $k$ in the MERT embedding space.
+
+\subsubsection{Nonconformity Score}
+
+We define the nonconformity score of a test embedding $\mathbf{e}_x$ with
+respect to genre $k$ as the cosine distance to the corresponding centroid:
+\begin{equation}
+  A(\mathbf{e}_x, k) = 1 - \cos(\mathbf{e}_x, \boldsymbol{\mu}_k)
+  = 1 - \frac{\mathbf{e}_x^\top \boldsymbol{\mu}_k}
+  {\|\mathbf{e}_x\| \, \|\boldsymbol{\mu}_k\|}.
+  \label{eq:nonconformity}
+\end{equation}
+When embeddings are $\ell_2$-normalized, this simplifies to
+$A(\mathbf{e}_x, k) = 1 - \mathbf{e}_x^\top \boldsymbol{\mu}_k$.
+The score measures stylistic dissimilarity between the query track and the
+prototype of genre $k$: a score close to $0$ indicates strong stylistic
+alignment, while a score close to $2$ (the theoretical maximum) indicates
+maximal dissimilarity.
+
+\subsubsection{Calibration and p-Values}
+
+We compute the nonconformity score for each calibration point with respect
+to its own (true) genre label:
+\begin{equation}
+  \mathcal{A}_{\text{cal}} = \{
+    A(\mathbf{e}_{x_i}, y_i) \mid (x_i, y_i) \in \mathcal{D}_{\text{cal}}
+  \}.
+  \label{eq:cal_scores}
+\end{equation}
+These scores form an empirical distribution of ``typical'' within-genre
+dissimilarities.
+
+For a test track with embedding $\mathbf{e}_x$, the $p$-value against
+hypothesis $H_0$: ``$x$ belongs to genre $k$'' is defined as the
+fraction of calibration scores that are at least as extreme as the observed
+score:
+\begin{equation}
+  p(\mathbf{e}_x, k) = \frac{
+    |\{ A_i \in \mathcal{A}_{\text{cal}} : A_i \geq A(\mathbf{e}_x, k) \}|
+    + 1
+  }{
+    |\mathcal{D}_{\text{cal}}| + 1
+  }.
+  \label{eq:pvalue}
+\end{equation}
+The additive smoothing ($+1$ in both numerator and denominator) ensures that
+$p$-values are strictly positive and no class is excluded a priori. Under the
+null hypothesis that the test point is exchangeable with the calibration
+data, the $p$-value is stochastically uniform: $p(\mathbf{e}_x, y_{\text{true}})
+\sim \text{Uniform}(0, 1)$.
+
+\subsubsection{Prediction Set Construction}
+
+Given a significance level $\alpha$, we include genre $k$ in the prediction
+set if and only if its $p$-value exceeds $\alpha$:
+\begin{equation}
+  \Gamma_{\alpha}(x) = \{
+    k \in \mathcal{Y} : p(\mathbf{e}_x, k) > \alpha
+  \}.
+  \label{eq:prediction_set}
+\end{equation}
+This construction guarantees the marginal coverage property stated in
+Equation~\ref{eq:coverage_guarantee}. Intuitively, the threshold $p >
+\alpha$ corresponds to requiring that the test track be no more dissimilar
+to the genre centroid than the most dissimilar $\lceil(1 - \alpha)
+(|\mathcal{D}_{\text{cal}}| + 1)\rceil$ calibration tracks are to their
+own genre centroids.
+
+\subsubsection{Evaluation Metrics}
+
+We evaluate prediction sets using two complementary metrics:
+
+\begin{itemize}[leftmargin=*,itemsep=1pt]
+    \item \textbf{Empirical coverage}---the fraction of test examples whose
+    true label falls within the prediction set.
+    A well-calibrated CP system should
+    achieve $\widehat{\text{Cov}}_{\alpha} \geq 1 - \alpha$ for all $\alpha$,
+    where
+    $\widehat{\text{Cov}}_{\alpha} =
+    \frac{1}{|\mathcal{D}_{\text{test}}|}
+    \sum_{(x,y)\in\mathcal{D}_{\text{test}}}
+    \mathbf{1}[y \in \Gamma_{\alpha}(x)]$.
+
+    \item \textbf{Average set size}---the mean number of genres included in the
+    prediction set:
+    $\overline{S}_{\alpha} = \frac{1}{|\mathcal{D}_{\text{test}}|}
+    \sum_{(x, y) \in \mathcal{D}_{\text{test}}} |\Gamma_{\alpha}(x)|$.
+    Smaller sets indicate higher precision; the size ranges from $0$ (empty,
+    indicating an OOD input) to $K$ (full set, indicating maximal ambiguity).
+\end{itemize}
+
+\subsection{Implementation Details}
+
+We implement the framework in Python~3.11 using PyTorch~2.7 and the HuggingFace
+Transformers library. MERT-v1-330M is loaded from the HuggingFace Hub via
+\texttt{AutoModel.from\_pretrained("m-a-p/MERT-v1-330M",}
+\texttt{trust\_remote\_code=True)}.
+Audio pre-processing (loading, resampling, mono conversion) is performed with
+TorchAudio~\cite{torchaudio}. Conformal prediction logic is implemented from
+first principles; we also verify consistency with the MAPIE
+library~\cite{cordier2023mapie}.
+
+All experiments are run on an NVIDIA RTX 5070 Laptop GPU with 8\,GB of VRAM.
+MERT inference at batch size~1 consumes approximately 1.32\,GB of GPU memory.
+
+To assess the robustness of our results, we repeat all CP experiments over
+five stratified random splits of the data (5-fold cross-validation), with
+random seeds fixed and reported to ensure reproducibility. Significance
+levels are set to $\alpha \in \{0.01, 0.05, 0.10\}$, corresponding to
+confidence levels of $99\%$, $95\%$, and $90\%$, respectively.
+
+\subsection{Baseline Methods}
+
+We compare CP against two widely used alternatives for constructing
+prediction sets:
+
+\begin{itemize}[leftmargin=*,itemsep=1pt]
+    \item \textbf{Bootstrap resampling.} We draw $B = 1{,}000$ bootstrap
+    samples (with replacement) from the calibration set, compute the
+    $(1 - \alpha)$-quantile of nonconformity scores for each resample,
+    and report the mean threshold across all bootstrap replicates.
+    While bootstrap is asymptotically consistent, it offers no finite-sample
+    coverage guarantee and is computationally expensive, requiring $B$ passes
+    over $\mathcal{D}_{\text{cal}}$.
+
+    \item \textbf{Gaussian approximation.} We fit a normal distribution
+    $\mathcal{N}(\hat{\mu}, \hat{\sigma}^2)$ to the calibration scores
+    $\mathcal{A}_{\text{cal}}$ and set the threshold to the
+    $(1 - \alpha)$-quantile of the fitted Gaussian. This approach assumes that
+    nonconformity scores are normally distributed---a strong parametric
+    assumption that is often violated in heavy-tailed perceptual similarity
+    distributions.
+\end{itemize}
+
+Both baselines construct prediction sets using the same nonconformity score
+$A(\mathbf{e}_x, k)$ defined in Equation~\ref{eq:nonconformity}, differing
+only in how they calibrate the threshold on $\mathcal{D}_{\text{cal}}$.

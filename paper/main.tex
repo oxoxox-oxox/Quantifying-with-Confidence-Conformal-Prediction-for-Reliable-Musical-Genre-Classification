@@ -1,0 +1,129 @@
+%% ===========================================================================
+%%  main.tex — Quantifying with Confidence: Conformal Prediction for
+%%           Reliable Musical Style Similarity Ranking
+%% ===========================================================================
+
+\documentclass[11pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{cite}
+
+% --- Metadata ---
+\title{Quantifying with Confidence:\\
+       Conformal Prediction for Reliable Musical Style\\
+       Similarity Ranking}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Quantifying musical style similarity is a central challenge in music information
+retrieval (MIR) and a critical component of AI-generated music evaluation.
+Current approaches based on self-supervised audio embeddings, such as
+MERT-v1-330M, produce point-estimate similarity scores with no accompanying
+measure of uncertainty. We introduce a framework that integrates conformal
+prediction (CP) with self-supervised audio representations to construct
+prediction sets with rigorous distribution-free coverage guarantees. Our method
+extracts 1024-dimensional embeddings from MERT-v1-330M, constructs per-genre
+prototype centroids from a reference set, and calibrates nonconformity scores
+on a held-out calibration set using cosine distance. On the GTZAN dataset
+(999 tracks, 10 genres), CP achieves empirical coverages of $0.993 \pm 0.010$,
+$0.955 \pm 0.021$, and $0.910 \pm 0.028$ at significance levels
+$\alpha = 0.01$, $0.05$, and $0.10$, respectively, tightly matching the nominal
+targets. In contrast, a Gaussian approximation baseline undercovers at
+$\alpha = 0.01$ ($0.965$ vs.\ target $0.990$), confirming that perceptual
+similarity scores exhibit heavy-tailed distributions. Bootstrap resampling,
+while empirically competitive, lacks finite-sample guarantees and incurs
+substantial computational cost. Our results demonstrate that quantifying
+musical style similarity with statistical confidence is both feasible and
+principled, opening avenues for reliable downstream tasks such as
+AI-generated music filtering and quality assessment.
+\end{abstract}
+
+% --- Sections ---
+\input{sections/01_introduction}
+\input{sections/02_related_work}
+\input{sections/03_methodology}
+\input{sections/04_experiments}
+\input{sections/05_discussion}
+\input{sections/06_conclusion}
+
+% --- Figures ---
+\clearpage
+\section*{Figures}
+\label{sec:appendix}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{../outputs/figures/coverage_vs_alpha.png}
+    \caption{Coverage vs.\ significance level $\alpha$. The dashed diagonal
+    represents the nominal $1-\alpha$ target. Error bars show $\pm 1$ standard
+    deviation across 5 stratified folds.}
+    \label{fig:coverage_vs_alpha}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{../outputs/figures/coverage_deviation.png}
+    \caption{Coverage deviation (empirical $-$ nominal) across three significance
+    levels. Bars above zero indicate overcoverage; bars below zero indicate
+    undercoverage.}
+    \label{fig:coverage_deviation}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{../outputs/figures/set_size_boxplot.png}
+    \caption{Prediction set size distribution across significance levels.
+    Boxes show quartiles; whiskers show range excluding outliers; diamonds mark
+    means.}
+    \label{fig:set_size_boxplot}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{../outputs/figures/pca_embeddings.png}
+    \caption{Two-dimensional PCA projection of the 1024-dimensional MERT
+    embeddings. Each point corresponds to one GTZAN track; colors indicate
+    genre labels.}
+    \label{fig:pca}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{3cm}
+    \textbf{[Schematic: Pipeline Overview]}\\[4pt]
+    Audio Input $\to$ MERT Encoder $\to$ Embedding $\mathbf{e}_x$
+    $\to$ Genre Centroids $\to$ Nonconformity Score
+    $\to$ Calibration $\to$ Prediction Set $\Gamma_{\alpha}(x)$
+    \vspace{3cm}}}
+    \caption{Schematic overview of the proposed framework. Raw audio is
+    processed through MERT to extract fixed-dimensional embeddings. Genre
+    prototype centroids are computed from a reference set. Nonconformity
+    scores for each query track are calibrated against a held-out calibration
+    set to produce prediction sets with coverage guarantees.}
+    \label{fig:pipeline}
+\end{figure}
+
+\clearpage
+
+% --- References ---
+\bibliographystyle{ieeetr}
+\bibliography{../references/refs}
+
+\end{document}

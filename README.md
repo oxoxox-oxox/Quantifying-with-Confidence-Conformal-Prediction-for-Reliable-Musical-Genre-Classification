@@ -61,6 +61,8 @@ python scripts/prepare_gtzan.py
 | Baselines | `experiments/baselines.py` | Bootstrap + Gaussian vs CP |
 | Visualization | `experiments/plot_results.py` | 3 publication figures |
 
+## Results
+
 ### Key Results (GTZAN, 5-fold stratified, 60/20/20 split)
 
 | α | Nominal Coverage | CP | Bootstrap | Gaussian |
@@ -72,6 +74,18 @@ python scripts/prepare_gtzan.py
 - CP coverage tightly matches nominal levels (distribution-free guarantee)
 - Gaussian undercovers at high confidence (α=0.01: 0.965 vs target 0.99) due to heavy-tailed score distribution
 - Embedding quality: intra-class cos=0.917, inter-class=0.873, separation δ=0.044
+
+## Paper
+
+```bash
+cd paper
+pdflatex -interaction=nonstopmode main.tex
+bibtex main
+pdflatex -interaction=nonstopmode main.tex
+pdflatex -interaction=nonstopmode main.tex
+```
+
+Output: `paper/main.pdf` (19 pages, ~630 KB, IEEE format)
 
 ---
 
@@ -92,9 +106,15 @@ python scripts/prepare_gtzan.py
 │   ├── cp_results/           # cp_results.csv, baseline_comparison.csv
 │   └── figures/              # pca_embeddings, coverage plots, set_size plots
 ├── paper/
-│   ├── figures/
+│   ├── main.tex                 # Main LaTeX file (IEEE, 21 references)
+│   ├── main.pdf                 # Compiled PDF (19 pages)
 │   └── sections/
-│       └── 01_introduction.tex    # Introduction draft
+│       ├── 01_introduction.tex  # ~1000 words, 3 contributions
+│       ├── 02_related_work.tex  # SSL/MERT/CP/UQ/evaluation review
+│       ├── 03_methodology.tex   # 6 equations, CP framework
+│       ├── 04_experiments.tex   # Results table, coverage analysis
+│       ├── 05_discussion.tex    # Interpretations, limitations, future work
+│       └── 06_conclusion.tex    # Summary and outlook
 ├── references/               # Literature .bib
 ├── scripts/
 │   ├── verify_mert.py        # MERT model verification
