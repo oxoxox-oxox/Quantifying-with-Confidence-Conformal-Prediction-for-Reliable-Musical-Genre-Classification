@@ -57,7 +57,9 @@ sets with distribution-free coverage guarantees. We evaluate our method on
 the GTZAN dataset~\cite{tzanetakis2002gtzan} (999 tracks across 10 genres
 after excluding one corrupted file), comparing against bootstrap resampling
 and Gaussian approximation baselines under a stratified 5-fold cross-validation
-protocol with a 60/20/20 (reference/calibration/test) split.
+protocol with a 60/20/20 (reference/calibration/test) split. We further
+validate on the Free Music Archive (FMA) Small dataset~\cite{defferrard2017fma}
+(7{,}994 tracks across 8 genres) to assess cross-dataset generalisation.
 
 We make the following contributions:
 
@@ -68,13 +70,16 @@ We make the following contributions:
     quantification (Section~\ref{sec:method}).
 
     \item We demonstrate empirically that our CP approach achieves empirical
-    coverage tightly matching nominal levels: $0.993 \pm 0.010$ at
+    coverage tightly matching nominal levels: on GTZAN, $0.993 \pm 0.010$ at
     $\alpha = 0.01$ (target $0.99$), $0.955 \pm 0.021$ at $\alpha = 0.05$
     (target $0.95$), and $0.910 \pm 0.028$ at $\alpha = 0.10$
-    (target $0.90$). In contrast, the Gaussian approximation baseline
-    yields only $0.965$ coverage at $\alpha = 0.01$, confirming that the
-    normality assumption fails in the heavy-tailed regime characteristic
-    of perceptual similarity tasks (Section~\ref{sec:experiments}).
+    (target $0.90$). On FMA Small---a larger, noisier dataset with weaker
+    class separation---CP achieves $0.988$, $0.948$, and $0.898$, confirming
+    that the distribution-free guarantee is representation-agnostic. In contrast,
+    the Gaussian approximation baseline
+    yields only $0.965$--$0.966$ coverage at $\alpha = 0.01$ on both datasets,
+    confirming that the normality assumption fails in the heavy-tailed regime
+    characteristic of perceptual similarity tasks (Section~\ref{sec:experiments}).
 
     \item We provide a systematic comparison of CP against bootstrap
     resampling and Gaussian approximation baselines, highlighting that

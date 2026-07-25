@@ -10,11 +10,19 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import LabelEncoder
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from src import (
+    load_data,
+    stratified_split,
+    compute_centroids,
+    compute_alpha_scores_test,
+    cp_prediction,
+    evaluate,
+)
+
 EMB_DIR = ROOT / "outputs" / "embeddings"
 OUT_DIR = ROOT / "outputs" / "cp_results"
 
@@ -22,99 +30,31 @@ ALPHAS = [0.01, 0.05, 0.10]
 N_SPLITS = 5
 REF_RATIO = 0.6
 CAL_RATIO = 0.2
-RNG = np.random.RandomState(42)
 
 
-def load_data():
-    emb = np.load(EMB_DIR / "embeddings.npy")
-    ids = np.load(EMB_DIR / "label_ids.npy")
-    meta = pd.read_csv(EMB_DIR / "metadata.csv")
-    le = LabelEncoder()
-    le.fit(meta["genre"].unique())
-    return emb, ids, le
+def run_split(emb, labels, n_classes, split_idx):
+    ref_idx, cal_idx, test_idx = stratified_split(
+        labels, n_classes,
+        ref_ratio=REF_RATIO, cal_ratio=CAL_RATIO,
+        seed=42 + split_idx,
+    )
 
-
-def build_prediction_sets(alpha_scores_test, cal_scores, alpha_level):
-    n_cal = len(cal_scores)
-    prediction_sets = []
-    p_values_all = []
-
-    for i in range(len(alpha_scores_test)):
-        alpha_x = alpha_scores_test[i]
-        p_vals = []
-        for k in range(len(alpha_x)):
-            p = (np.sum(cal_scores >= alpha_x[k]) + 1) / (n_cal + 1)
-            p_vals.append(p)
-        p_values_all.append(p_vals)
-        pred_set = [k for k, p in enumerate(p_vals) if p > alpha_level]
-        prediction_sets.append(pred_set)
-
-    return prediction_sets, p_values_all
-
-
-def evaluate(prediction_sets, true_labels, n_classes):
-    n = len(true_labels)
-    covered = 0
-    set_sizes = []
-
-    for i in range(n):
-        sz = len(prediction_sets[i])
-        set_sizes.append(sz)
-        if true_labels[i] in prediction_sets[i]:
-            covered += 1
-
-    coverage = covered / n
-    avg_size = np.mean(set_sizes)
-    empty = sum(1 for s in prediction_sets if len(s) == 0)
-    singleton = sum(1 for s in prediction_sets if len(s) == 1)
-    return coverage, avg_size, set_sizes, empty, singleton
-
-
-def run_split(emb, labels, le, split_idx):
-    n = len(labels)
-    n_classes = len(le.classes_)
-    indices = np.arange(n)
-    rng = np.random.RandomState(42 + split_idx)
-
-    ref_indices = []
-    cal_indices = []
-    test_indices = []
-
-    for c in range(n_classes):
-        c_idx = indices[labels == c]
-        rng.shuffle(c_idx)
-        n_ref = int(len(c_idx) * REF_RATIO)
-        n_cal = int(len(c_idx) * CAL_RATIO)
-        ref_indices.append(c_idx[:n_ref])
-        cal_indices.append(c_idx[n_ref:n_ref + n_cal])
-        test_indices.append(c_idx[n_ref + n_cal:])
-
-    ref_idx = np.concatenate(ref_indices)
-    cal_idx = np.concatenate(cal_indices)
-    test_idx = np.concatenate(test_indices)
-
-    centroids = np.zeros((n_classes, emb.shape[1]), dtype=np.float32)
-    for c in range(n_classes):
-        mask = labels[ref_idx] == c
-        centroids[c] = emb[ref_idx][mask].mean(axis=0)
+    centroids = compute_centroids(emb, labels, ref_idx, n_classes)
 
     cal_scores = np.array([
-        1.0 - cosine_similarity(emb[i:i+1], centroids[labels[i]:labels[i]+1])[0, 0]
+        1.0 - np.dot(
+            emb[i] / np.linalg.norm(emb[i]),
+            centroids[labels[i]] / np.linalg.norm(centroids[labels[i]])
+        )
         for i in cal_idx
     ])
 
-    alpha_scores_test = np.array([
-        [1.0 - cosine_similarity(emb[i:i+1], centroids[k:k+1])[0, 0]
-         for k in range(n_classes)]
-        for i in test_idx
-    ])
+    alpha_scores_test = compute_alpha_scores_test(emb, test_idx, centroids, n_classes)
 
     results = {}
     for alpha in ALPHAS:
-        pred_sets, p_values = build_prediction_sets(alpha_scores_test, cal_scores, alpha)
-        cov, avg_sz, sizes, empty, sing = evaluate(
-            pred_sets, labels[test_idx], n_classes
-        )
+        pred_sets = cp_prediction(alpha_scores_test, cal_scores, alpha)
+        cov, avg_sz, sizes, empty, sing = evaluate(pred_sets, labels[test_idx])
         results[alpha] = {
             "coverage": cov,
             "avg_set_size": avg_sz,
@@ -131,7 +71,7 @@ def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     print("Loading data ...")
-    emb, labels, le = load_data()
+    emb, labels, le = load_data(EMB_DIR)
     n_classes = len(le.classes_)
     print(f"  embeddings: {emb.shape}")
     print(f"  classes: {n_classes} ({list(le.classes_)})")
@@ -140,7 +80,7 @@ def main():
 
     for split in range(N_SPLITS):
         print(f"\nSplit {split+1}/{N_SPLITS} ...")
-        results, centroids, cal_scores = run_split(emb, labels, le, split)
+        results, centroids, cal_scores = run_split(emb, labels, n_classes, split)
 
         for alpha in ALPHAS:
             r = results[alpha]

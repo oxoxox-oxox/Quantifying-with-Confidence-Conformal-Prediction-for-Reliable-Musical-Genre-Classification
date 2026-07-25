@@ -45,8 +45,14 @@ on a held-out calibration set using cosine distance. On the GTZAN dataset
 (999 tracks, 10 genres), CP achieves empirical coverages of $0.993 \pm 0.010$,
 $0.955 \pm 0.021$, and $0.910 \pm 0.028$ at significance levels
 $\alpha = 0.01$, $0.05$, and $0.10$, respectively, tightly matching the nominal
-targets. In contrast, a Gaussian approximation baseline undercovers at
-$\alpha = 0.01$ ($0.965$ vs.\ target $0.990$), confirming that perceptual
+targets. On the Free Music Archive (FMA) Small dataset (7{,}994 tracks, 8
+genres)---a larger, noisier, and more diverse collection where MERT embeddings
+exhibit markedly weaker class separation ($\Delta = 0.026$ vs.\ GTZAN's
+$0.044$)---CP achieves coverages of $0.988$, $0.948$, and $0.898$, confirming
+that the distribution-free guarantee is representation-agnostic. In contrast,
+a Gaussian approximation baseline undercovers at
+$\alpha = 0.01$ ($0.965$--$0.966$ vs.\ target $0.990$) on both datasets,
+confirming that perceptual
 similarity scores exhibit heavy-tailed distributions. Bootstrap resampling,
 while empirically competitive, lacks finite-sample guarantees and incurs
 substantial computational cost. Our results demonstrate that quantifying
@@ -102,6 +108,36 @@ AI-generated music filtering and quality assessment.
     embeddings. Each point corresponds to one GTZAN track; colors indicate
     genre labels.}
     \label{fig:pca}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{../outputs/figures/fma_coverage_comparison.png}
+    \caption{CP coverage on GTZAN vs.\ FMA Small. Despite the substantially
+    weaker class separation on FMA ($\Delta = 0.026$ vs.\ GTZAN's $0.044$),
+    CP maintains near-nominal coverage on both datasets. Error bars show
+    $\pm 1$ standard deviation across 5 stratified folds.}
+    \label{fig:fma_coverage}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{../outputs/figures/fma_set_size_comparison.png}
+    \caption{CP average prediction set size on GTZAN vs.\ FMA Small. Despite
+    fewer genres ($K=8$ vs.\ $K=10$) and weaker class separation, FMA produces
+    smaller prediction sets at $\alpha = 0.01$ due to its substantially larger
+    calibration corpus ($\sim$1{,}600 vs.\ $\sim$200 tracks).}
+    \label{fig:fma_set_size}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{../outputs/figures/fma_full_results.png}
+    \caption{Full results on FMA Small. (Left) Coverage vs.\ $\alpha$ for all
+    three methods. (Right) Coverage deviation from nominal. All methods
+    perform comparably at $\alpha = 0.10$, but Gaussian undercovers at
+    $\alpha = 0.01$, consistent with the GTZAN findings.}
+    \label{fig:fma_full}
 \end{figure}
 
 \begin{figure}[H]

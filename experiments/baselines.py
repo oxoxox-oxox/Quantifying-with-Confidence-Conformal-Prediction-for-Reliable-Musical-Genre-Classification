@@ -8,10 +8,22 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
-from scipy import stats
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from src import (
+    load_data,
+    stratified_split,
+    compute_centroids,
+    compute_alpha_scores_test,
+    compute_nonconformity_scores,
+    cp_prediction,
+    bootstrap_prediction,
+    gaussian_prediction,
+    evaluate,
+)
+
 EMB_DIR = ROOT / "outputs" / "embeddings"
 OUT_DIR = ROOT / "outputs" / "cp_results"
 
@@ -22,104 +34,26 @@ CAL_RATIO = 0.2
 N_BOOTSTRAP = 1000
 
 
-def load_data():
-    emb = np.load(EMB_DIR / "embeddings.npy")
-    ids = np.load(EMB_DIR / "label_ids.npy")
-    meta = pd.read_csv(EMB_DIR / "metadata.csv")
-    from sklearn.preprocessing import LabelEncoder
-    le = LabelEncoder()
-    le.fit(meta["genre"].unique())
-    return emb, ids, le
-
-
-def cp_prediction(alpha_scores_test, cal_scores, alpha):
-    n_cal = len(cal_scores)
-    pred_sets = []
-    for i in range(len(alpha_scores_test)):
-        s = []
-        for k in range(len(alpha_scores_test[i])):
-            p = (np.sum(cal_scores >= alpha_scores_test[i][k]) + 1) / (n_cal + 1)
-            if p > alpha:
-                s.append(k)
-        pred_sets.append(s)
-    return pred_sets
-
-
-def bootstrap_prediction(alpha_scores_test, cal_scores, alpha, n_boot):
-    n_cal = len(cal_scores)
-    rng = np.random.RandomState(42)
-    thresholds = []
-    for _ in range(n_boot):
-        boot = cal_scores[rng.choice(n_cal, size=n_cal, replace=True)]
-        thresholds.append(np.quantile(boot, 1.0 - alpha))
-    threshold = np.mean(thresholds)
-    pred_sets = []
-    for scores in alpha_scores_test:
-        s = [k for k, v in enumerate(scores) if v <= threshold]
-        pred_sets.append(s)
-    return pred_sets
-
-
-def gaussian_prediction(alpha_scores_test, cal_scores, alpha):
-    mu, sigma = np.mean(cal_scores), np.std(cal_scores, ddof=1)
-    z = stats.norm.ppf(1.0 - alpha)
-    threshold = mu + z * sigma
-    pred_sets = []
-    for scores in alpha_scores_test:
-        s = [k for k, v in enumerate(scores) if v <= threshold]
-        pred_sets.append(s)
-    return pred_sets
-
-
-def evaluate(pred_sets, true_labels):
-    n = len(true_labels)
-    covered = sum(1 for i in range(n) if true_labels[i] in pred_sets[i])
-    sizes = [len(s) for s in pred_sets]
-    return covered / n, np.mean(sizes), sizes
-
-
 def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    emb, labels, le = load_data()
+    emb, labels, le = load_data(EMB_DIR)
     n_classes = len(le.classes_)
-    n = len(labels)
 
     methods = ["CP", "Bootstrap", "Gaussian"]
     all_rows = []
 
     for split in range(N_SPLITS):
-        rng = np.random.RandomState(42 + split)
-        indices = np.arange(n)
-        ref_idx, cal_idx, test_idx = [], [], []
+        ref_idx, cal_idx, test_idx = stratified_split(
+            labels, n_classes,
+            ref_ratio=REF_RATIO, cal_ratio=CAL_RATIO,
+            seed=42 + split,
+        )
 
-        for c in range(n_classes):
-            c_idx = indices[labels == c]
-            rng.shuffle(c_idx)
-            n_ref = int(len(c_idx) * REF_RATIO)
-            n_cal = int(len(c_idx) * CAL_RATIO)
-            ref_idx.append(c_idx[:n_ref])
-            cal_idx.append(c_idx[n_ref:n_ref + n_cal])
-            test_idx.append(c_idx[n_ref + n_cal:])
+        centroids = compute_centroids(emb, labels, ref_idx, n_classes)
 
-        ref_idx = np.concatenate(ref_idx)
-        cal_idx = np.concatenate(cal_idx)
-        test_idx = np.concatenate(test_idx)
+        cal_scores = compute_nonconformity_scores(emb, labels, cal_idx, centroids)
 
-        centroids = np.array([
-            emb[ref_idx][labels[ref_idx] == c].mean(axis=0)
-            for c in range(n_classes)
-        ])
-
-        cal_scores = np.array([
-            1.0 - cosine_similarity(emb[i:i+1], centroids[labels[i]:labels[i]+1])[0, 0]
-            for i in cal_idx
-        ])
-
-        alpha_test = np.array([
-            [1.0 - cosine_similarity(emb[i:i+1], centroids[k:k+1])[0, 0]
-             for k in range(n_classes)]
-            for i in test_idx
-        ])
+        alpha_test = compute_alpha_scores_test(emb, test_idx, centroids, n_classes)
 
         true_test = labels[test_idx]
 
@@ -129,10 +63,11 @@ def main():
             gauss_sets = gaussian_prediction(alpha_test, cal_scores, alpha)
 
             for method, pred_sets in zip(methods, [cp_sets, boot_sets, gauss_sets]):
-                cov, avg_sz, sizes = evaluate(pred_sets, true_test)
+                cov, avg_sz, sizes, empty, sing = evaluate(pred_sets, true_test)
                 all_rows.append({
                     "split": split, "alpha": alpha, "method": method,
                     "coverage": cov, "avg_set_size": avg_sz,
+                    "empty_sets": empty, "singleton_sets": sing,
                     "n_test": len(test_idx),
                 })
 

@@ -90,7 +90,7 @@
 | 4 | 实验运行与分析 | 图表、表格、结果解读 | ✅ |
 | 5 | 全文整合与润色 | 完整初稿 + PDF | ✅ |
 
-**当前阶段**：全文初稿 + PDF 编译完成。已完成 17/19 步骤 (1-19, 除 11-12)。
+**当前阶段**：全文初稿 + PDF 编译完成。已完成 21/23 步骤 (1-19, 20-23, 除 11-12)。
 
 ## 进度记录
 
@@ -108,6 +108,10 @@
 | 10 | 基线对比 | ✅ | Bootstrap 0.987, Gaussian 0.965/0.932/0.907; CP 优于或等于两者 |
 | 11 | 过滤实验 | ⏳ | 待实现：基于置信下限的生成样本过滤 |
 | 12 | 采样实验 | ⏳ | 待实现：置信下限引导的生成采样 |
+| 20 | FMA 数据准备 | ✅ | `scripts/prepare_fma.py --download`，7994/8000 可用的 8 流派，每类 ~1000 |
+| 21 | FMA 嵌入提取 | ✅ | `experiments/extract_embeddings_fma.py`，7994 → (7994, 1024)，~68 min |
+| 22 | FMA CP 实验 | ✅ | `experiments/cp_fma_experiment.py`，CP+Bootstrap+Gaussian，intra=0.847, delta=0.026 |
+| 23 | FMA 对比图 | ✅ | `experiments/plot_fma_comparison.py`，3 张对比图 |
 | 13 | 图表生成 | ✅ | 3张: coverage_vs_alpha, set_size_boxplot, coverage_deviation |
 | 14 | 引言 | ✅ | `paper/sections/01_introduction.tex`, ~1000 词, 含贡献声明 + 实验数据 |
 | 15 | 相关工作 | ✅ | `paper/sections/02_related_work.tex`, ~180 行, 5 个子节, 覆盖 SSL/MERT/CP/UQ/评估
@@ -133,6 +137,7 @@
 ### 待办
 
 - 论文全文初稿 + PDF 编译已完成（步骤 1-10, 13-19）
+- FMA 补充数据集实验已完成（步骤 20-23），8 流派/7994 有效文件，CP 覆盖保证跨数据集验证通过
 - 剩余待实现：过滤实验（步骤 11）、采样实验（步骤 12）
 
 ---
@@ -205,6 +210,28 @@ E_x = outputs.hidden_states[-1].mean(dim=1)  # [1, 1024]
 | 0.05 | 0.95 | 0.955 | 0.950 | 0.932 |
 | 0.10 | 0.90 | 0.910 | 0.910 | 0.907 |
 
+**FMA 结果 (7994 首, 8 流派, 5-fold, 60/20/20 split)**：
+
+| α | 名义覆盖率 | CP | Bootstrap | Gaussian |
+|---|-----------|-----|-----------|----------|
+| 0.01 | 0.99 | 0.988 | 0.987 | 0.966 |
+| 0.05 | 0.95 | 0.948 | 0.947 | 0.934 |
+| 0.10 | 0.90 | 0.898 | 0.896 | 0.903 |
+
+**跨数据集对比**：
+
+| 指标 | GTZAN (999) | FMA (7994) |
+|------|:----------:|:----------:|
+| 流派数 | 10 | 8 |
+| Intra-class cos | 0.917 | 0.847 |
+| Inter-class cos | 0.873 | 0.821 |
+| Separation delta | 0.044 | 0.026 |
+| CP avg set size (α=0.05) | 6.69 | 6.85 |
+
+- FMA 嵌入区分度显著低于 GTZAN (delta 0.026 vs 0.044)，因为 8 个顶级流派间重叠度高
+- CP 覆盖保证在两个数据集上均成立，验证了分布无关性质
+- FMA 预测集偏大 (>6/8)，反映流派标签模糊性 —— 这是大规模真实数据集的固有特征，也验证了 CP 的诚实性
+
 ---
 
 ## 11. 运行命令速查
@@ -218,7 +245,11 @@ E_x = outputs.hidden_states[-1].mean(dim=1)  # [1, 1024]
 | `python experiments/cp_classification.py` | CP 分类实验 (5-fold) |
 | `python experiments/baselines.py` | Bootstrap + Gaussian 基线对比 |
 | `python experiments/plot_results.py` | 生成论文图表 (3 张) |
+| `python scripts/prepare_fma.py --download` | 下载 FMA Small (7.2 GB) + 元数据 |
+| `python experiments/extract_embeddings_fma.py` | 从 FMA 提取 MERT 嵌入 (~80 min) |
+| `python experiments/cp_fma_experiment.py` | FMA CP 分类 + 基线对比 |
+| `python experiments/plot_fma_comparison.py` | GTZAN vs FMA 对比图 |
 
 ---
 
-*最后更新：2026-07-25 | 进度：17/19 步骤完成 | 全文初稿 + PDF 编译通过 (19 页) | 方案：MERT + Conformal Prediction (方案A) | Python 3.11 | PyTorch 2.7+*
+*最后更新：2026-07-25 | 进度：21/23 步骤完成 | 全文初稿 + PDF 编译通过 (19 页) + FMA 补充实验完成 | 方案：MERT + Conformal Prediction (方案A) | Python 3.11 | PyTorch 2.7+*

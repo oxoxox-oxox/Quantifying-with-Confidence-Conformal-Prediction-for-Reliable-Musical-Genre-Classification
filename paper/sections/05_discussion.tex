@@ -107,13 +107,16 @@ tail probabilities.
 
 Several limitations of the current work warrant discussion.
 
-\textbf{Single-dataset evaluation.} Our experiments are confined to the GTZAN
-dataset, which, despite its canonical status, has known limitations: short
-30-second excerpts, a coarse 10-genre taxonomy, and potential artifacts
-(introduced by the encoding pipeline) that models may exploit rather than
-learning genuine musical features. Evaluation on larger and more diverse
-datasets---such as the Free Music Archive (FMA)~\cite{defferrard2017fma}---is
-an important next step.
+\textbf{Cross-dataset generalisation.} We have extended our evaluation to the
+FMA Small dataset (Section~\ref{sec:fma_experiment}), which differs from
+GTZAN along several axes: larger scale ($\sim$8{,}000 vs.\ 999 tracks),
+variable-length full tracks vs.\ curated 30-second excerpts, and a coarser
+8-genre taxonomy. The MERT embeddings exhibit substantially weaker class
+separation on FMA ($\Delta = 0.026$ vs.\ GTZAN's $0.044$), yet CP
+maintains near-nominal coverage ($0.988$, $0.948$, $0.898$ at $\alpha = 0.01$,
+$0.05$, $0.10$, respectively). This cross-dataset validation strengthens the
+evidence that the distribution-free coverage guarantee is not an artifact of
+the GTZAN benchmark but a robust property of the CP-MERT pipeline.
 
 \textbf{Calibration-test exchangeability.} The coverage guarantee of CP
 requires that calibration and test data be exchangeable. In practice, this

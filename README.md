@@ -42,10 +42,18 @@ data/gtzan/
 python scripts/prepare_gtzan.py
 ```
 
-### FMA (Supplementary, optional)
+### FMA (Supplementary, 7.2 GB)
 
-1. <https://github.com/mdeff/fma>
-2. Download `fma_small.zip` (8000 tracks, 8 genres)
+Full pipeline (download + extraction + experiments):
+
+```
+python scripts/prepare_fma.py --download
+python experiments/extract_embeddings_fma.py
+python experiments/cp_fma_experiment.py
+python experiments/plot_fma_comparison.py
+```
+
+FMA Small: 7994 valid tracks across 8 top-level genres (Electronic, Experimental, Folk, Hip-Hop, Instrumental, International, Pop, Rock). Genres are evenly distributed (~1000 per class).
 
 ---
 
@@ -60,6 +68,10 @@ python scripts/prepare_gtzan.py
 | CP classification | `experiments/cp_classification.py` | CP scheme A: genre centroid classification |
 | Baselines | `experiments/baselines.py` | Bootstrap + Gaussian vs CP |
 | Visualization | `experiments/plot_results.py` | 3 publication figures |
+| **FMA data prep** | `scripts/prepare_fma.py --download` | Download + verify FMA Small |
+| **FMA embeddings** | `experiments/extract_embeddings_fma.py` | MERT → (7994, 1024) |
+| **FMA experiments** | `experiments/cp_fma_experiment.py` | CP + baselines on FMA |
+| **FMA comparison** | `experiments/plot_fma_comparison.py` | GTZAN vs FMA figures |
 
 ## Results
 
@@ -74,6 +86,18 @@ python scripts/prepare_gtzan.py
 - CP coverage tightly matches nominal levels (distribution-free guarantee)
 - Gaussian undercovers at high confidence (α=0.01: 0.965 vs target 0.99) due to heavy-tailed score distribution
 - Embedding quality: intra-class cos=0.917, inter-class=0.873, separation δ=0.044
+
+### FMA Results (7994 tracks, 8 genres, 5-fold)
+
+| α | Nominal Coverage | CP | Bootstrap | Gaussian |
+|---|-------------------|-----|-----------|----------|
+| 0.01 | 0.99 | **0.988** ± 0.004 | 0.987 ± 0.004 | 0.966 ± 0.003 |
+| 0.05 | 0.95 | **0.948** ± 0.004 | 0.947 ± 0.004 | 0.934 ± 0.005 |
+| 0.10 | 0.90 | **0.898** ± 0.006 | 0.896 ± 0.006 | 0.903 ± 0.005 |
+
+- CP coverage guarantee holds across datasets (distribution-free property verified)
+- FMA embedding quality lower: intra=0.847, inter=0.821, δ=0.026 (broad genres overlap more)
+- Larger prediction sets (6-8/8) reflect higher label ambiguity in real-world data
 
 ## Paper
 
@@ -93,18 +117,24 @@ Output: `paper/main.pdf` (19 pages, ~630 KB, IEEE format)
 
 ```
 ├── data/                     # Datasets (git-ignored)
-│   └── gtzan/genres_original/  # 10 genres x 100 WAV
+│   ├── gtzan/genres_original/  # 10 genres x 100 WAV
+│   └── fma/                    # FMA Small (8 genres, 8000 MP3)
 ├── experiments/
-│   ├── extract_embeddings.py   # MERT embedding extraction
+│   ├── extract_embeddings.py   # MERT embedding extraction (GTZAN)
 │   ├── verify_embeddings.py    # Embedding quality check + PCA
 │   ├── cp_classification.py    # CP scheme A (classification)
 │   ├── baselines.py            # Bootstrap + Gaussian baselines
-│   └── plot_results.py         # Publication figures
+│   ├── plot_results.py         # Publication figures
+│   ├── extract_embeddings_fma.py   # MERT embedding extraction (FMA)
+│   ├── cp_fma_experiment.py        # CP + baselines on FMA
+│   └── plot_fma_comparison.py      # GTZAN vs FMA comparison plots
 ├── notebooks/                # Exploratory notebooks
 ├── outputs/
-│   ├── embeddings/           # embeddings.npy, metadata.csv, labels.csv
-│   ├── cp_results/           # cp_results.csv, baseline_comparison.csv
-│   └── figures/              # pca_embeddings, coverage plots, set_size plots
+│   ├── embeddings/           # GTZAN: embeddings.npy (999, 1024)
+│   ├── embeddings_fma/       # FMA: embeddings.npy (7994, 1024)
+│   ├── cp_results/           # GTZAN: cp_results, baseline_comparison
+│   ├── cp_results_fma/       # FMA: baseline_comparison_fma
+│   └── figures/              # All figures (PCA, coverage, FMA comparison)
 ├── paper/
 │   ├── main.tex                 # Main LaTeX file (IEEE, 21 references)
 │   ├── main.pdf                 # Compiled PDF (19 pages)
@@ -118,7 +148,8 @@ Output: `paper/main.pdf` (19 pages, ~630 KB, IEEE format)
 ├── references/               # Literature .bib
 ├── scripts/
 │   ├── verify_mert.py        # MERT model verification
-│   └── prepare_gtzan.py      # GTZAN validation
+│   ├── prepare_gtzan.py      # GTZAN validation
+│   └── prepare_fma.py        # FMA download + validation
 ├── src/                      # Core library code
 ├── tests/                    # Unit tests
 ├── Guide.md                  # Full writing guide (Chinese)
