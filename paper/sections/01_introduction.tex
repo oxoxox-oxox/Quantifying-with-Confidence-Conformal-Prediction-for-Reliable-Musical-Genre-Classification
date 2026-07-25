@@ -1,0 +1,96 @@
+%% ===========================================================================
+%%  1. Introduction
+%%  Quantifying with Confidence: Conformal Prediction for Reliable Musical
+%%  Style Similarity Ranking
+%% ===========================================================================
+
+\section{Introduction}
+
+Musical style similarity assessment is a fundamental problem in music
+information retrieval (MIR) and a critical component in the evaluation of
+AI-generated music. Whether curating playlists, recommending tracks, or
+filtering outputs from generative models such as MusicGen~\cite{copet2023musicgen}
+and AudioLDM~2~\cite{liu2023audioldm2}, practitioners need to determine how closely
+a piece of music aligns with a target stylistic reference. The reliability of
+these similarity judgments directly impacts the quality of downstream
+applications, yet the methods used to produce them have largely remained
+point-estimate heuristics with no principled uncertainty quantification.
+
+Recent advances in self-supervised learning (SSL) have yielded powerful audio
+representation models capable of capturing high-level musical attributes
+including timbre, harmony, rhythm, and genre. Among these, the Music
+undERstanding model with large-scale self-supervised Training
+(MERT)~\cite{li2023mert}---a 330M-parameter Transformer pre-trained on 160,000
+hours of music data---has demonstrated state-of-the-art performance across a
+wide range of MIR tasks. By extracting embeddings from MERT's deep hidden
+representations, one can compute pairwise cosine similarity between tracks
+and obtain a single scalar score reflecting their stylistic proximity.
+However, this similarity score is a point estimate: it conveys no information
+about its own reliability, does not account for the inherent ambiguity of
+musical style boundaries, and offers no statistical guarantees. In
+safety-critical or curation-sensitive settings---such as filtering
+AI-generated music for stylistic compliance or constructing evaluation
+benchmarks for generative models---the absence of uncertainty quantification
+constitutes a significant limitation.
+
+Conformal Prediction (CP)~\cite{vovk2005algorithmic,shafer2008tutorial}
+provides a distribution-free, finite-sample framework for constructing
+prediction sets with rigorous coverage guarantees. Given a user-specified
+significance level $\alpha$, CP produces a prediction set $\Gamma(x)$ that
+is guaranteed to contain the correct label with probability at least
+$1 - \alpha$, under only the assumption that calibration and test data are
+exchangeable. Unlike Bayesian methods, CP makes no parametric assumptions
+about the underlying distribution; unlike bootstrap approaches, it offers
+provable finite-sample validity rather than asymptotic approximations.
+These properties make CP particularly well-suited to subjective perceptual
+tasks such as musical style assessment, where the score distribution is
+inherently heavy-tailed and resists simple parametric modeling.
+
+In this paper, we propose the first integration of conformal prediction with
+self-supervised audio embeddings for reliable musical style similarity
+ranking. Our framework extracts 1024-dimensional embeddings from
+MERT-v1-330M for each audio track, constructs per-genre prototype centroids
+from a reference set, and defines a nonconformity score based on the cosine
+distance between a query embedding and each genre centroid. Using a held-out
+calibration set, we compute empirical $p$-values and construct prediction
+sets with distribution-free coverage guarantees. We evaluate our method on
+the GTZAN dataset~\cite{tzanetakis2002gtzan} (999 tracks across 10 genres
+after excluding one corrupted file), comparing against bootstrap resampling
+and Gaussian approximation baselines under a stratified 5-fold cross-validation
+protocol with a 60/20/20 (reference/calibration/test) split.
+
+We make the following contributions:
+
+\begin{enumerate}
+    \item We propose the first conformal prediction framework for musical style
+    similarity assessment, bridging the gap between self-supervised audio
+    representation learning and statistically rigorous uncertainty
+    quantification (Section~\ref{sec:method}).
+
+    \item We demonstrate empirically that our CP approach achieves empirical
+    coverage tightly matching nominal levels: $0.993 \pm 0.010$ at
+    $\alpha = 0.01$ (target $0.99$), $0.955 \pm 0.021$ at $\alpha = 0.05$
+    (target $0.95$), and $0.910 \pm 0.028$ at $\alpha = 0.10$
+    (target $0.90$). In contrast, the Gaussian approximation baseline
+    yields only $0.965$ coverage at $\alpha = 0.01$, confirming that the
+    normality assumption fails in the heavy-tailed regime characteristic
+    of perceptual similarity tasks (Section~\ref{sec:experiments}).
+
+    \item We provide a systematic comparison of CP against bootstrap
+    resampling and Gaussian approximation baselines, highlighting that
+    only CP offers a distribution-free, finite-sample coverage guarantee---a
+    critical property when the calibration set is small or the underlying
+    distribution is non-Gaussian (Section~\ref{sec:experiments}).
+\end{enumerate}
+
+The remainder of this paper is organized as follows. Section~\ref{sec:related}
+reviews related work on self-supervised music representation, conformal
+prediction, and uncertainty quantification in MIR. Section~\ref{sec:method}
+presents our CP framework, detailing the MERT embedding pipeline, genre
+centroid construction, nonconformity score design, and prediction set
+formation. Section~\ref{sec:experiments} describes our experimental setup,
+compares CP against baselines, and analyzes coverage and set size results.
+Section~\ref{sec:discussion} discusses the implications of our findings,
+including the theoretical advantages of CP in perceptual tasks and
+limitations of the current approach. Section~\ref{sec:conclusion} concludes
+with a summary of contributions and directions for future work.
