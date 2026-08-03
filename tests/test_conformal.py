@@ -2,12 +2,15 @@
 
 import numpy as np
 import pytest
+import torch
 from src.conformal import (
     compute_centroids,
     compute_nonconformity_scores,
     cp_prediction,
     bootstrap_prediction,
     gaussian_prediction,
+    LinearProbe,
+    linear_probe_pipeline,
     compute_alpha_scores_test,
 )
 from src.evaluation import evaluate
@@ -163,3 +166,67 @@ class TestNonconformityScores:
         centroids = compute_centroids(emb, labels, ref_idx, n_classes=1)
         scores = compute_nonconformity_scores(emb, labels, ref_idx, centroids)
         assert np.mean(scores) < 0.01
+
+
+class TestLinearProbe:
+
+    def test_model_forward_shape(self):
+        model = LinearProbe(input_dim=16, n_classes=3)
+        x = torch.randn(5, 16)
+        out = model(x)
+        assert out.shape == (5, 3)
+
+    def test_pipeline_output_shapes(self):
+        n_samples, n_features, n_classes = 300, 16, 3
+        rng = np.random.RandomState(42)
+        emb = rng.randn(n_samples, n_features).astype(np.float32)
+        labels = np.concatenate([np.full(100, c) for c in range(n_classes)])
+
+        ref_idx = np.arange(200)
+        cal_idx = np.arange(200, 250)
+        test_idx = np.arange(250, 300)
+
+        cos_cal, cos_alpha, smx_cal, smx_alpha = linear_probe_pipeline(
+            emb, labels, ref_idx, cal_idx, test_idx, n_classes,
+            epochs=20, seed=42,
+        )
+        assert cos_cal.shape == (len(cal_idx),)
+        assert cos_alpha.shape == (len(test_idx), n_classes)
+        assert smx_cal.shape == (len(cal_idx),)
+        assert smx_alpha.shape == (len(test_idx), n_classes)
+
+    def test_pipeline_cp_prediction_sets(self):
+        n_samples, n_features, n_classes = 300, 16, 3
+        rng = np.random.RandomState(42)
+        emb = rng.randn(n_samples, n_features).astype(np.float32)
+        labels = np.concatenate([np.full(100, c) for c in range(n_classes)])
+
+        ref_idx = np.arange(200)
+        cal_idx = np.arange(200, 250)
+        test_idx = np.arange(250, 300)
+
+        cos_cal, cos_alpha, smx_cal, smx_alpha = linear_probe_pipeline(
+            emb, labels, ref_idx, cal_idx, test_idx, n_classes,
+            epochs=20, seed=42,
+        )
+        sets = cp_prediction(cos_alpha, cos_cal, alpha=0.1)
+        assert len(sets) == len(test_idx)
+
+    def test_softmax_score_format(self):
+        n_samples, n_features, n_classes = 300, 16, 3
+        rng = np.random.RandomState(42)
+        emb = rng.randn(n_samples, n_features).astype(np.float32)
+        labels = np.concatenate([np.full(100, c) for c in range(n_classes)])
+
+        ref_idx = np.arange(200)
+        cal_idx = np.arange(200, 250)
+        test_idx = np.arange(250, 300)
+
+        cos_cal, cos_alpha, smx_cal, smx_alpha = linear_probe_pipeline(
+            emb, labels, ref_idx, cal_idx, test_idx, n_classes,
+            epochs=20, seed=42,
+        )
+        sets = cp_prediction(smx_alpha, smx_cal, alpha=0.1)
+        true_labels = labels[test_idx]
+        coverage, _, _, _, _ = evaluate(sets, true_labels)
+        assert coverage > 0.5

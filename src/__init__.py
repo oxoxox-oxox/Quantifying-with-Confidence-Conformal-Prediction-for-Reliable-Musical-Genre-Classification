@@ -7,5 +7,6 @@ from .conformal import (
     cp_prediction,
     bootstrap_prediction,
     gaussian_prediction,
+    linear_probe_pipeline,
 )
 from .evaluation import evaluate

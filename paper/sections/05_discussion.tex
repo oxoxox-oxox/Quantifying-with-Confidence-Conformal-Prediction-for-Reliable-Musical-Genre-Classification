@@ -1,169 +1,57 @@
 %% ===========================================================================
 %%  5. Discussion
-%%  Quantifying with Confidence: Conformal Prediction for Reliable Musical
-%%  Style Similarity Ranking
 %% ===========================================================================
 
 \section{Discussion}
 \label{sec:discussion}
 
-Our experimental results demonstrate that conformal prediction can be
-effectively paired with self-supervised audio embeddings to produce
-statistically rigorous prediction sets for musical style classification.
-In this section, we interpret the theoretical and practical implications of
-these findings, discuss limitations of the current approach, and outline
-directions for future work.
+Our results demonstrate that CP can function as a user-facing interface layer
+between AI music models and their human users. We distill three design
+principles and discuss limitations.
 
-\subsection{Why Conformal Prediction Works for Musical Style}
+\subsection{Design Implications}
 
-The strong performance of CP on the GTZAN dataset is grounded in two
-complementary factors. First, the MERT embedding space preserves sufficient
-genre-discriminative structure. The measured intra-class cosine similarity of
-$0.917$ well above the inter-class value of $0.873$ indicates that same-genre
-tracks are systematically closer in the embedding space than across-genre
-tracks. This provides a meaningful signal on which the nonconformity score
-can operate.
+\textbf{Prediction set size is a universal confidence indicator.} Set
+cardinality communicates confidence without statistical training: $|\Gamma| = 1$
+signals certainty, $|\Gamma| = 6$ signals ambiguity. This maps to Miller's
+observation that humans reason more reliably about categorical sets than
+continuous probabilities~\cite{miller2019explanation}. A UI showing a track's
+prediction set alongside its single-label prediction enables users to calibrate
+trust at a glance.
 
-Second, and more fundamentally, the conformal prediction framework makes no
-parametric assumptions about the distribution of nonconformity scores. The
-empirical disparity between CP and the Gaussian approximation baseline at
-$\alpha = 0.01$---where Gaussian achieves only $0.965$ coverage vs.\ CP's
-$0.993$---confirms that the cosine-distance-based nonconformity scores exhibit
-heavy-tailed behavior. Musical style boundaries are inherently ambiguous:
-some tracks sit squarely within a single genre, while others---fusion,
-crossover, or experimental works---lie in the stylistic periphery, producing
-large nonconformity scores that a thin-tailed Gaussian model cannot account
-for. CP gracefully handles this heterogeneity by calibrating on the empirical
-distribution directly, without assuming a parametric form.
+\textbf{$\alpha$ provides a direct user control.} The significance level maps
+to an answerable question: ``What risk of missing the true genre am I willing to
+accept?'' This enables a spectrum from conservative mode ($\alpha = 0.01$, 6--7
+candidates) for high-stakes curation to exploratory mode ($\alpha = 0.10$, 2--3
+candidates) for casual browsing, all within the same system.
 
-\subsection{Interpretation of Prediction Set Sizes}
+\textbf{Distribution-free calibration is essential for predictable interface
+behavior.} The Gaussian baseline's mass overcoverage and Bootstrap's marginal
+undercoverage under the identical prediction model demonstrate that parametric
+calibration assumptions produce unreliable user-facing behavior. Only empirical
+$p$-value calibration consistently respects the coverage promise across datasets
+and $\alpha$ levels.
 
-The average prediction set sizes of $8.51$ ($\alpha = 0.01$), $6.69$
-($\alpha = 0.05$), and $5.40$ ($\alpha = 0.10$) may appear large relative
-to the total of $K = 10$ classes. Several factors contribute to this:
+\subsection{Limitations and Future Work}
 
-\begin{itemize}[leftmargin=*,itemsep=1pt]
-    \item \textbf{Granularity of the genre taxonomy.} The GTZAN label space
-    contains perceptually adjacent genres (e.g., rock, country, pop) whose
-    stylistic boundaries are fuzzy by nature. When a track sits near a genre
-    boundary, multiple centroids will produce similarly low nonconformity
-    scores, leading to larger prediction sets. This is not a deficiency of CP
-    but rather an honest reflection of the ambiguity in the label space.
+\textbf{Exchangeability requirement.} The coverage guarantee assumes calibration
+and test data are exchangeable. When deploying on AI-generated music or novel
+distributions, this may be violated. Integrating novelty detection that alerts
+users when a track falls outside the calibration distribution is a natural
+extension.
 
-    \item \textbf{Calibration set size.} With $|\mathcal{D}_{\text{cal}}|
-    \approx 200$ tracks (spread across 10 classes), the empirical quantile
-    estimate has limited granularity. A well-known property of CP is that
-    prediction set size scales roughly as $\mathcal{O}(K / \sqrt{m})$ where
-    $m$ is the calibration size. With larger calibration sets, the threshold
-    $\hat{q}_{\alpha}$ becomes a more precise estimate, leading to tighter
-    prediction sets.
+\textbf{Static prototypes.} The Linear Probe produces fixed prototypes that
+cannot adapt to personal genre ontologies or evolving styles. Personalizing
+prototypes via user feedback (genre corrections, listening history) could
+improve relevance while preserving the CP guarantee.
 
-    \item \textbf{Choice of nonconformity score.} The cosine distance
-    $A(\mathbf{e}_x, k) = 1 - \cos(\mathbf{e}_x, \boldsymbol{\mu}_k)$ is a
-    symmetric, class-agnostic score that treats all genres as equally distant.
-    An adaptive nonconformity score---for instance, normalizing by the
-    intra-class variance of each genre centroid---could produce class-conditional
-    thresholds and potentially reduce set sizes for ``tight'' genres while
-    increasing them for diffuse ones.
-\end{itemize}
+\textbf{User studies needed.} The present work establishes algorithmic
+foundations. A critical next step is evaluating how prediction sets affect user
+trust calibration, decision speed, and task accuracy in realistic music curation
+scenarios. We believe the quantitative results---valid coverage, compact sets,
+and controllable behavior---provide compelling motivation for such studies.
 
-The heterogeneity of individual set sizes---ranging from singletons (high
-confidence) to the full set of 10 (high ambiguity)---suggests that CP-based
-prediction sets carry interpretable information beyond aggregate coverage.
-A track assigned a singleton set $\{\text{metal}\}$ is a robust classification;
-a track receiving all 10 genres signals that it is stylistically ambiguous
-or out-of-distribution relative to the calibration data.
-
-\subsection{CP vs. Bootstrap and Gaussian Baselines}
-
-The comparison in Table~\ref{tab:coverage_results} reveals a clear ordering
-in terms of statistical validity:
-
-\begin{enumerate}[leftmargin=*,itemsep=1pt]
-    \item \textbf{CP} provides the only distribution-free, finite-sample
-    guarantee and achieves empirical coverage that tightly matches nominal
-    levels at all $\alpha$.
-
-    \item \textbf{Bootstrap} is empirically competitive on the GTZAN dataset
-    but offers no theoretical guarantee for finite samples. Its computational
-    cost ($1{,}000$ resamples of the calibration set) is prohibitive for
-    real-time applications or large-scale deployment.
-
-    \item \textbf{Gaussian approximation} fails at the high-confidence
-    tail ($\alpha = 0.01$), where its normality assumption does not hold.
-    While computationally trivial (a single fitted normal distribution), its
-    undercoverage in the high-stakes regime renders it unsafe for applications
-    requiring reliable confidence bounds.
-\end{enumerate}
-
-The bootstrap's proximity to CP at $\alpha = 0.05$ and $\alpha = 0.10$
-indicates that with sufficiently many samples, both the empirical quantile
-and the bootstrap distribution converge to the true quantile. The bootstrap's
-slight undercoverage at $\alpha = 0.01$ ($0.987$ vs.\ target $0.990$) may
-reflect finite-sample bias in the bootstrap quantile estimate for extreme
-tail probabilities.
-
-\subsection{Limitations}
-
-Several limitations of the current work warrant discussion.
-
-\textbf{Cross-dataset generalisation.} We have extended our evaluation to the
-FMA Small dataset (Section~\ref{sec:fma_experiment}), which differs from
-GTZAN along several axes: larger scale ($\sim$8{,}000 vs.\ 999 tracks),
-variable-length full tracks vs.\ curated 30-second excerpts, and a coarser
-8-genre taxonomy. The MERT embeddings exhibit substantially weaker class
-separation on FMA ($\Delta = 0.026$ vs.\ GTZAN's $0.044$), yet CP
-maintains near-nominal coverage ($0.988$, $0.948$, $0.898$ at $\alpha = 0.01$,
-$0.05$, $0.10$, respectively). This cross-dataset validation strengthens the
-evidence that the distribution-free coverage guarantee is not an artifact of
-the GTZAN benchmark but a robust property of the CP-MERT pipeline.
-
-\textbf{Calibration-test exchangeability.} The coverage guarantee of CP
-requires that calibration and test data be exchangeable. In practice, this
-assumption may be violated if the test distribution shifts---for instance,
-when evaluating AI-generated music that may occupy regions of the embedding
-space not represented in the GTZAN calibration data. Distribution shift is a
-known challenge for all CP methods, and detecting when the exchangeability
-assumption fails is an active research area.
-
-\textbf{MERT embedding layer selection.} We use only the last hidden layer
-of the MERT-v1-330M encoder. Prior work has shown that different layers encode
-qualitatively different musical information: lower layers capture fine-grained
-acoustic and timbral detail, while higher layers encode more abstract
-structural and semantic features. A weighted combination or learned selection
-of layers could improve discriminability and reduce prediction set sizes.
-
-\textbf{Computational overhead.} While the MERT embedding extraction is a
-one-time cost ($\sim$9~minutes for GTZAN), the mean-pooling over 10-second
-segments with 5-second overlap is a heuristic choice. End-to-end models that
-ingest variable-length audio directly---or more efficient segment aggregation
-strategies---could reduce the extraction overhead for large-scale datasets.
-
-\subsection{Future Work}
-
-The present work establishes a baseline for conformal prediction in musical
-style assessment. Several extensions are natural:
-
-\begin{itemize}[leftmargin=*,itemsep=1pt]
-    \item \textbf{Adaptive nonconformity scores.} Designing class-conditional
-    scores that account for intra-genre variance could yield tighter prediction
-    sets. For example, normalizing the cosine distance by the empirical
-    standard deviation of each centroid: $A_{\text{adapt}}(\mathbf{e}_x, k) =
-    (1 - \cos(\mathbf{e}_x, \boldsymbol{\mu}_k)) / \hat{\sigma}_k$.
-
-    \item \textbf{Confidence-guided filtering of generated music.} A direct
-    application of our framework is post-filtering AI-generated music.
-    Given a target style, tracks whose prediction set does not include
-    the target genre---or whose $p$-value for the target genre falls below
-    a threshold---can be rejected with statistical justification.
-
-    \item \textbf{Multimodal style assessment.} Integrating textual metadata
-    (lyrics, artist descriptions) with audio embeddings---for instance, via
-    CLAP-style joint embeddings~\cite{elizalde2022clap}---could enrich the
-    stylistic representation and narrow prediction sets for ambiguous cases.
-
-    \item \textbf{Distribution-shift detection.} Pairing CP prediction sets
-    with a test for exchangeability violations would enable the framework to
-    signal when its coverage guarantee may not hold, enhancing trustworthiness
-    in deployment scenarios with evolving musical content.
-\end{itemize}
+Beyond music, prediction sets are a general-purpose interface primitive. We
+encourage investigation of CP as a user-facing layer in other perceptual domains
+where single-label predictions fail to communicate the ambiguity inherent in
+human perception.

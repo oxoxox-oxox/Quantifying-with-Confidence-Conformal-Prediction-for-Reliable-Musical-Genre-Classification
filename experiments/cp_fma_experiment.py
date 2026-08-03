@@ -1,7 +1,11 @@
 """Conformal Prediction experiment on FMA Small dataset.
 
-Combines CP classification + Bootstrap + Gaussian baseline comparison
-into a single unified experiment for the FMA dataset (8000 tracks, 8 genres).
+Main experiment:
+  - LP-Cos-CP: learned prototypes (cosine score) + CP p-value
+
+Baselines (all share the same Linear Probe prediction model):
+  - LP-Softmax-Bootstrap: softmax residual score + bootstrap quantile
+  - LP-Softmax-Gaussian: softmax residual score + Gaussian quantile
 """
 import sys
 from pathlib import Path
@@ -16,12 +20,10 @@ sys.path.insert(0, str(ROOT))
 from src import (
     load_data,
     stratified_split,
-    compute_centroids,
-    compute_nonconformity_scores,
-    compute_alpha_scores_test,
     cp_prediction,
     bootstrap_prediction,
     gaussian_prediction,
+    linear_probe_pipeline,
     evaluate,
 )
 
@@ -70,7 +72,7 @@ def main():
     print(f"  inter-class cos: {inter_mean:.4f}")
     print(f"  separation delta: {delta:.4f}")
 
-    methods = ["CP", "Bootstrap", "Gaussian"]
+    methods = ["LP-Cos-CP", "LP-Softmax-Bootstrap", "LP-Softmax-Gaussian"]
     all_rows = []
 
     for split in range(N_SPLITS):
@@ -81,20 +83,22 @@ def main():
             seed=42 + split,
         )
 
-        centroids = compute_centroids(emb, labels, ref_idx, n_classes)
-
-        cal_scores = compute_nonconformity_scores(emb, labels, cal_idx, centroids)
-
-        alpha_test = compute_alpha_scores_test(emb, test_idx, centroids, n_classes)
+        cos_cal, cos_alpha, smx_cal, smx_alpha = linear_probe_pipeline(
+            emb, labels, ref_idx, cal_idx, test_idx, n_classes,
+            seed=42 + split,
+        )
 
         true_test = labels[test_idx]
 
         for alpha in ALPHAS:
-            cp_sets = cp_prediction(alpha_test, cal_scores, alpha)
-            boot_sets = bootstrap_prediction(alpha_test, cal_scores, alpha, N_BOOTSTRAP)
-            gauss_sets = gaussian_prediction(alpha_test, cal_scores, alpha)
+            lp_cos_sets = cp_prediction(cos_alpha, cos_cal, alpha)
+            lp_smx_boot_sets = bootstrap_prediction(smx_alpha, smx_cal, alpha, N_BOOTSTRAP)
+            lp_smx_gauss_sets = gaussian_prediction(smx_alpha, smx_cal, alpha)
 
-            for method, pred_sets in zip(methods, [cp_sets, boot_sets, gauss_sets]):
+            for method, pred_sets in zip(
+                methods,
+                [lp_cos_sets, lp_smx_boot_sets, lp_smx_gauss_sets],
+            ):
                 cov, avg_sz, sizes, empty, sing = evaluate(pred_sets, true_test)
                 all_rows.append({
                     "split": split, "alpha": alpha, "method": method,
@@ -106,18 +110,18 @@ def main():
     df = pd.DataFrame(all_rows)
 
     print("\n" + "=" * 60)
-    print("FMA SMALL — CP CLASSIFICATION RESULTS")
+    print("FMA SMALL -- LP + CP EXPERIMENT RESULTS")
     print("=" * 60)
 
     for alpha in ALPHAS:
-        print(f"\n--- α = {alpha:.2f} (target coverage = {1-alpha:.2f}) ---")
+        print(f"\n--- a = {alpha:.2f} (target coverage = {1-alpha:.2f}) ---")
         for method in methods:
             sub = df[(df["alpha"] == alpha) & (df["method"] == method)]
             cov_m, cov_s = sub["coverage"].mean(), sub["coverage"].std()
             sz_m, sz_s = sub["avg_set_size"].mean(), sub["avg_set_size"].std()
             cov_ok = "[OK]" if abs(cov_m - (1 - alpha)) < 0.03 else "[BELOW]"
-            print(f"  {method:12s}: coverage={cov_m:.3f}±{cov_s:.3f} {cov_ok}  "
-                  f"set_size={sz_m:.2f}±{sz_s:.2f}")
+            print(f"  {method:22s}: coverage={cov_m:.3f}+/-{cov_s:.3f} {cov_ok}  "
+                  f"set_size={sz_m:.2f}+/-{sz_s:.2f}")
 
     df.to_csv(OUT_DIR / "baseline_comparison_fma.csv", index=False)
     print(f"\nSaved: {OUT_DIR / 'baseline_comparison_fma.csv'}")

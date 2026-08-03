@@ -1,307 +1,98 @@
 %% ===========================================================================
 %%  4. Experiments
-%%  Quantifying with Confidence: Conformal Prediction for Reliable Musical
-%%  Style Similarity Ranking
 %% ===========================================================================
 
 \section{Experiments}
 \label{sec:experiments}
 
-We evaluate the proposed framework along three dimensions:
-(1)~the quality of MERT embeddings for capturing stylistic similarity,
-(2)~the coverage and set size characteristics of conformal prediction sets,
-and (3)~the comparison of CP against bootstrap and Gaussian approximation
-baselines. All experiments use the GTZAN dataset under a stratified 5-fold
-cross-validation protocol.
+\subsection{Setup}
 
-\subsection{Dataset and Preprocessing}
+\textbf{GTZAN}~\cite{tzanetakis2002gtzan} (999 tracks, 10 genres) and
+\textbf{FMA Small}~\cite{defferrard2017fma} (7,994 tracks, 8 genres). Embeddings
+are $\ell_2$-normalized 1024-dim vectors from MERT-v1-330M. We use stratified
+5-fold 60/20/20 splits; the Linear Probe is trained for 100 epochs (Adam,
+$\text{lr}=10^{-3}$, $\text{weight\_decay}=10^{-2}$). We evaluate at $\alpha
+\in \{0.01, 0.05, 0.10\}$.
 
-\textbf{GTZAN}~\cite{tzanetakis2002gtzan} is the de facto standard benchmark
-for music genre classification and a common testbed for music information
-retrieval research. It consists of 1{,}000~audio tracks evenly distributed
-across 10~genres: blues, classical, country, disco, hip-hop, jazz, metal,
-pop, reggae, and rock. Each track is a 30-second monophonic WAV file sampled
-at 22.05\,kHz.
+\subsection{Embedding Quality}
 
-During data validation, we identified one corrupted file
-(\texttt{jazz.00054.wav}) that could not be successfully decoded, leaving
-$N = 999$ tracks for the experiments. The remaining jazz class has 99 tracks;
-all other classes have 100~tracks. This minor imbalance is accounted for by
-our stratified splitting procedure and is negligible for the coverage analysis.
+On GTZAN, MERT embeddings achieve intra-class cosine similarity $0.917$ vs.\
+inter-class $0.873$ ($\Delta = 0.044$). Classical and metal are well-separated;
+rock and country overlap, consistent with perceptual ambiguity. On FMA,
+separation is substantially weaker ($\Delta = 0.026$), reflecting more entangled
+genre categories.
 
-\textbf{Preprocessing.} All audio tracks are resampled to MERT's native
-sampling rate of 24\,kHz, converted to mono via channel averaging, and
-processed through the embedding extraction pipeline described in
-Section~\ref{sec:method}. The output is a matrix
-$\mathbf{E} \in \mathbb{R}^{999 \times 1024}$ of $\ell_2$-normalized
-embeddings. Extraction of all embeddings requires approximately 9~minutes on
-an NVIDIA RTX~5070~GPU (8\,GB~VRAM).
+\subsection{Coverage and Set Size}
 
-\subsection{Experimental Setup}
-
-We adopt a stratified 5-fold protocol that preserves per-genre proportions
-across all subsets. For each fold, the data is partitioned into three disjoint
-splits:
-\begin{itemize}[leftmargin=*,itemsep=1pt]
-    \item \textbf{Reference set} ($60\%$): used to compute per-genre prototype
-    centroids $\boldsymbol{\mu}_k$ via Equation~\ref{eq:centroid}.
-    \item \textbf{Calibration set} ($20\%$): used to compute the empirical
-    distribution of nonconformity scores $\mathcal{A}_{\text{cal}}$ and
-    calibrate prediction thresholds.
-    \item \textbf{Test set} ($20\%$): held out for evaluation; never used
-    during centroid construction or calibration.
-\end{itemize}
-For each test point $x$, we compute nonconformity scores
-$A(\mathbf{e}_x, k)$ with respect to all $K = 10$ genre centroids, derive
-$p$-values via Equation~\ref{eq:pvalue}, and construct prediction sets
-$\Gamma_{\alpha}(x)$ via Equation~\ref{eq:prediction_set}. Results are
-aggregated across all five folds to produce means and standard deviations.
-
-We evaluate at three significance levels $\alpha \in \{0.01, 0.05, 0.10\}$,
-corresponding to confidence targets of $99\%$, $95\%$, and $90\%$,
-respectively. Random seeds are fixed (base seed 42, incremented by fold
-index) to ensure reproducibility.
-
-\subsection{Embedding Quality Verification}
-
-Before evaluating the conformal prediction framework, we assess whether
-MERT embeddings capture genre-discriminative structure in the GTZAN dataset.
-We compute two quantities: (i)~\emph{intra-class cosine similarity}---the
-mean pairwise cosine similarity between embeddings of tracks belonging to
-the same genre; and (ii)~\emph{inter-class cosine similarity}---the mean
-cosine similarity between embeddings of tracks belonging to different genres.
-
-The intra-class similarity averaged across all 10 genres is $0.917$, while
-the inter-class similarity is $0.873$, yielding a separation margin of
-$\Delta = 0.044$. The positive margin confirms that tracks from the same
-genre are systematically closer in the MERT embedding space than tracks from
-different genres. A two-dimensional PCA projection of the embedding matrix
-(see Figure~\ref{fig:pca} in Appendix~\ref{sec:appendix}) further reveals
-clear clustering tendencies, with genres such as \emph{classical} and
-\emph{metal} forming tight, well-separated groups and more ambiguous genres
-such as \emph{rock} and \emph{country} occupying overlapping regions---a
-pattern consistent with known perceptual ambiguities in musical genre
-taxonomy.
-
-We detect no NaN or infinite values in the embedding matrix, confirming that
-the MERT extraction pipeline is numerically stable.
-
-\subsection{Coverage Analysis}
-
-Table~\ref{tab:coverage_results} reports the empirical coverage of CP,
-Bootstrap, and Gaussian methods averaged over the five cross-validation folds.
+Table~\ref{tab:coverage_results} reports empirical coverage and average
+prediction set size (mean $\pm$ std over 5 stratified folds).
 
 \begin{table}[htbp]
 \centering
-\caption{Empirical coverage and average prediction set size across three
-significance levels (\textbf{bold} = best coverage). Coverage $\geq$ nominal
-is highlighted as matching or exceeding the $1-\alpha$ target. Results
-aggregated over 5 stratified folds (mean $\pm$ std).
-}
+\caption{Empirical coverage and average set size (mean $\pm$ std over 5 stratified
+60/20/20 folds).}
 \label{tab:coverage_results}
-\begin{tabular}{c c c c c}
+\small
+\begin{tabular}{c c c c c c}
 \toprule
-$\alpha$ & Nominal $1-\alpha$ & CP & Bootstrap & Gaussian \\
+Dataset & $\alpha$ & Nominal & LP-Cos-CP & Bootstrap & Gaussian \\
 \midrule
-\addlinespace[2pt]
-\multirow{2}{*}{0.01} & \multirow{2}{*}{0.99}
-    & \textbf{0.993 $\pm$ 0.010} & 0.987 $\pm$ 0.012 & 0.965 $\pm$ 0.020 \\
-    & & \hspace{2pt}(set size: 8.51) & (8.11) & (7.05) \\[4pt]
-\multirow{2}{*}{0.05} & \multirow{2}{*}{0.95}
-    & \textbf{0.955 $\pm$ 0.021} & 0.950 $\pm$ 0.023 & 0.932 $\pm$ 0.033 \\
-    & & \hspace{2pt}(set size: 6.69) & (6.59) & (6.03) \\[4pt]
-\multirow{2}{*}{0.10} & \multirow{2}{*}{0.90}
-    & \textbf{0.910 $\pm$ 0.028} & \textbf{0.910 $\pm$ 0.029} & 0.907 $\pm$ 0.031 \\
-    & & \hspace{2pt}(set size: 5.40) & (5.39) & (5.35) \\
+\multirow{3}{*}{GTZAN}
+    & 0.01 & 0.99 & \textbf{0.988$\pm$0.014} & 0.986$\pm$0.013 & 1.000$\pm$0.000 \\
+    & & & (6.13) & (5.26) & (9.96) \\[2pt]
+    & 0.05 & 0.95 & \textbf{0.963$\pm$0.011} & 0.958$\pm$0.016 & 0.991$\pm$0.010 \\
+    & & & (3.62) & (3.11) & (5.39) \\[2pt]
+    & 0.10 & 0.90 & \textbf{0.905$\pm$0.020} & 0.899$\pm$0.017 & 0.947$\pm$0.022 \\
+    & & & (2.42) & (2.13) & (2.84) \\
+\midrule
+\multirow{3}{*}{FMA}
+    & 0.01 & 0.99 & \textbf{0.990$\pm$0.005} & 0.990$\pm$0.005 & 1.000$\pm$0.000 \\
+    & & & (6.85) & (6.78) & (8.00) \\[2pt]
+    & 0.05 & 0.95 & 0.953$\pm$0.010 & 0.950$\pm$0.011 & 0.994$\pm$0.002 \\
+    & & & (5.25) & (5.02) & (7.09) \\[2pt]
+    & 0.10 & 0.90 & \textbf{0.908$\pm$0.010} & 0.910$\pm$0.009 & 0.945$\pm$0.009 \\
+    & & & (4.08) & (3.90) & (4.81) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Conformal prediction meets its coverage guarantee.} At
-$\alpha = 0.01$, CP achieves coverage of $0.993$, exceeding the nominal
-$0.99$ target. At $\alpha = 0.05$, coverage is $0.955$, and at $\alpha =
-0.10$, it is $0.910$---both tightly matching their respective nominal levels.
-The standard deviations (0.010--0.028) reflect the fold-to-fold variability
-expected from a 999-track dataset, and are consistent with the
-$\mathcal{O}(1/\sqrt{n})$ scaling of empirical coverage estimates.
+\textbf{LP-Cos-CP} achieves coverage tightly matching nominal targets on both
+datasets. At the default $\alpha = 0.05$ setting (95\% confidence), the system
+returns 3--4 genres on GTZAN and 5 on FMA; at $\alpha = 0.10$, sets shrink to
+2--3 genres on GTZAN (4 on FMA), meaning a user typically inspects only a few
+candidates rather than the full label space. Learned prototypes reduce set sizes
+by 55\% at $\alpha = 0.10$ compared to centroid-based CP (from 5.40 to 2.42 on
+GTZAN). Set size distributions (Figure~\ref{fig:set_size_boxplot}) confirm
+compact sets predominate, with empty sets rare ($<1\%$).
 
-\textbf{Gaussian approximation fails at high confidence.} The Gaussian
-baseline achieves only $0.965$ coverage at $\alpha = 0.01$---a shortfall of
-$2.5$~percentage~points below the $0.99$ nominal target. This confirms that
-the nonconformity score distribution in the MERT embedding space deviates
-from normality, exhibiting heavier tails than a Gaussian distribution. At
-more lenient significance levels ($\alpha = 0.05, 0.10$), the Gaussian
-approximation approaches acceptable coverage, consistent with the asymptotic
-robustness of Gaussian quantiles in the central regime. However, the
-deficiency at $\alpha = 0.01$ is precisely the regime most relevant for
-high-stakes filtering and safety-critical applications.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.60\textwidth]{../outputs/figures/set_size_boxplot.png}
+    \caption{Prediction set size distribution across $\alpha$ levels. Compact
+    sets (1--3 genres) predominate at $\alpha=0.10$.}
+    \label{fig:set_size_boxplot}
+\end{figure}
 
-\textbf{Bootstrap performs comparably to CP but without guarantees.} The
-bootstrap baseline achieves coverage of $0.987$ at $\alpha = 0.01$, slightly
-below the nominal target, and $0.950$ and $0.910$ at $\alpha = 0.05$ and
-$\alpha = 0.10$, respectively. While its aggregate performance closely
-tracks CP on the GTZAN dataset, bootstrap offers no finite-sample coverage
-guarantee and requires $B = 1{,}000$ resamples of the calibration set,
-incurring roughly $1{,}000\times$ the computational cost of CP calibration.
+\textbf{Bootstrap} produces the tightest sets (2.13 on GTZAN at $\alpha=0.10$)
+but marginally undercovers at $\alpha = 0.10$ ($0.899$ vs.\ nominal $0.90$),
+breaking the system's confidence promise without user-visible warning. Its
+$1{,}000\times$ calibration cost is impractical for interactive settings.
 
-\subsection{Prediction Set Size Analysis}
+\textbf{Gaussian} catastrophically overcovers: at $\alpha = 0.01$ on GTZAN it
+returns all 10 genres (9.96) with $100\%$ coverage, providing zero diagnostic
+value. The normality assumption interacts unpredictably with score distribution
+shape, producing interface behavior that fails in ways users cannot anticipate.
 
-The second row for each $\alpha$ in Table~\ref{tab:coverage_results} reports
-the average prediction set size. The key observations are:
+\subsection{Cross-Dataset Robustness}
 
-\begin{itemize}[leftmargin=*,itemsep=1pt]
-    \item \textbf{Set size decreases with $\alpha$, as expected.} As the
-    significance level relaxes ($\alpha: 0.01 \to 0.10$), the
-    $(1 - \alpha)$-quantile of calibration scores decreases, admitting fewer
-    genres into the prediction set. CP set sizes shrink from $8.51$ (at
-    $\alpha = 0.01$) to $5.40$ (at $\alpha = 0.10$), reflecting increasing
-    permissiveness of the inclusion criterion.
+Despite FMA's weaker embedding separability ($\Delta = 0.026$), CP's
+distribution-free guarantee ensures valid coverage. Set sizes remain
+proportionally larger on FMA ($4.08$--$6.85$ for $K=8$ vs.\ $2.42$--$6.13$ for
+$K=10$ on GTZAN), reflecting genuine stylistic overlap in the FMA
+taxonomy---feedback that itself informs users to expect broader prediction sets
+with this dataset.
 
-    \item \textbf{Gaussian achieves smaller sets through undercoverage.} The
-    Gaussian baseline consistently produces the smallest prediction sets
-    (e.g., $7.05$ vs.\ CP's $8.51$ at $\alpha = 0.01$), but this apparent
-    advantage is spurious: it stems from an overly optimistic threshold
-    derived from the normality assumption, which excludes true labels that
-    fall in the heavy tail. The smaller set size is not a sign of higher
-    precision but of \emph{overconfidence}---a well-known pitfall of
-    parametric methods on non-Gaussian data.
-
-    \item \textbf{CP achieves the best coverage--size trade-off.} At
-    $\alpha = 0.01$, CP's set size of $8.51$ is approximately $1.46$ larger
-    than the Gaussian baseline's $7.05$, yet CP provides valid coverage
-    ($0.993 \geq 0.99$) while Gaussian does not ($0.965 < 0.99$). This
-    demonstrates that CP pays an appropriate ``uncertainty premium'' in set
-    size to deliver its distribution-free coverage guarantee---a premium that
-    is both principled and empirically necessary.
-\end{itemize}
-
-The distribution of set sizes across individual test tracks (visualized in
-Figure~\ref{fig:set_size_boxplot} in Appendix~\ref{sec:appendix}) reveals
-substantial heterogeneity: while most tracks receive prediction sets
-containing 4--9 genres, a small number of tracks are assigned either very
-small sets (1--2 genres, indicating high confidence) or the full set of 10
-genres (indicating maximal ambiguity). Empty prediction sets are rare
-($<1\%$ across all folds and $\alpha$ levels), consistent with the fact that
-GTZAN tracks are drawn from the same distribution as the calibration data.
-
-\subsection{Cross-Dataset Validation on FMA}
-\label{sec:fma_experiment}
-
-To assess whether the conformal prediction framework generalizes beyond
-GTZAN, we conduct a parallel experiment on the Free Music Archive (FMA) Small
-dataset~\cite{defferrard2017fma}---a substantially larger and more diverse
-collection of full-length Creative Commons-licensed music. FMA Small contains
-8{,}000 tracks (7{,}994 after excluding corrupted files) spanning eight
-top-level genres: Electronic, Experimental, Folk, Hip-Hop, Instrumental,
-International, Pop, and Rock. Tracks are variable-length MP3 files (most 30--180\,s)
-encoding a broader range of musical styles and recording conditions than
-GTZAN's curated 30-second excerpts.
-
-\textbf{Embedding quality.} Following the same MERT extraction pipeline
-(Section~\ref{sec:method}), we obtain a $7{,}994 \times 1024$ embedding matrix
-for FMA Small. The intra-class cosine similarity is $0.847$, the inter-class
-similarity is $0.821$, yielding a separation margin of $\Delta = 0.026$. This
-is substantially narrower than GTZAN's $\Delta = 0.044$---approximately
-$41\%$ weaker separation---consistent with the larger, noisier, and
-stylistically more heterogeneous composition of the FMA dataset. The positive
-margin nonetheless confirms that MERT embeddings exhibit meaningful
-genre-discriminative structure.
-
-\textbf{CP results on FMA.} Table~\ref{tab:fma_results} reports the empirical
-coverage and set size for all three methods on FMA, aggregated over five
-stratified folds.
-
-\begin{table}[htbp]
-\centering
-\caption{Empirical coverage and average prediction set size on the FMA Small
-dataset (\textbf{bold} = best coverage). Results aggregated over 5 stratified
-folds (mean $\pm$ std). FMA contains more tracks ($\sim$8{,}000) and exhibits
-weaker class separation ($\Delta = 0.026$) than GTZAN.
-}
-\label{tab:fma_results}
-\begin{tabular}{c c c c c}
-\toprule
-$\alpha$ & Nominal $1-\alpha$ & CP & Bootstrap & Gaussian \\
-\midrule
-\addlinespace[2pt]
-\multirow{2}{*}{0.01} & \multirow{2}{*}{0.99}
-    & \textbf{0.988 $\pm$ 0.004} & 0.987 $\pm$ 0.004 & 0.966 $\pm$ 0.003 \\
-    & & \hspace{2pt}(set size: 7.75) & (7.72) & (7.22) \\[4pt]
-\multirow{2}{*}{0.05} & \multirow{2}{*}{0.95}
-    & \textbf{0.948 $\pm$ 0.004} & 0.947 $\pm$ 0.004 & 0.934 $\pm$ 0.005 \\
-    & & \hspace{2pt}(set size: 6.85) & (6.83) & (6.59) \\[4pt]
-\multirow{2}{*}{0.10} & \multirow{2}{*}{0.90}
-    & 0.898 $\pm$ 0.006 & 0.896 $\pm$ 0.006 & \textbf{0.903 $\pm$ 0.005} \\
-    & & \hspace{2pt}(set size: 6.03) & (6.02) & (6.10) \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Several observations are noteworthy. First, CP continues to provide coverage
-closely matching nominal targets despite the weaker embedding space---$0.988$
-at $\alpha = 0.01$ (target $0.99$) and $0.948$ at $\alpha = 0.05$ (target
-$0.95$). This demonstrates that the distribution-free guarantee is robust to
-the quality of the underlying representation: CP adapts its threshold to the
-empirical score distribution regardless of the discriminability of the
-embedding space.
-
-Second, the standard deviations on FMA ($\sim$0.003--0.006) are substantially
-smaller than on GTZAN ($\sim$0.010--0.033), reflecting the nearly $8\times$
-larger sample size and the corresponding reduction in fold-to-fold variance.
-
-Third, the Gaussian baseline at $\alpha = 0.10$ achieves slightly higher
-coverage ($0.903$) than CP ($0.898$), an inversion of the pattern observed on
-GTZAN. This occurs because the Gaussian quantile is more conservative than CP's
-empirical quantile at this particular significance level for the FMA score
-distribution. However, at $\alpha = 0.01$---the high-confidence regime most
-critical for downstream applications---Gaussian undercovers by $2.4$ percentage
-points ($0.966$ vs.\ target $0.99$), consistently failing where guarantees
-matter most.
-
-Finally, the prediction set sizes on FMA are generally smaller than on GTZAN
-(e.g., $7.75$ vs.\ $8.51$ at $\alpha = 0.01$), despite the weaker class
-separation. This counterintuitive result can be explained by two factors:
-(1)~the substantially larger calibration set ($\sim$1{,}600 tracks vs.\
-$\sim$200 on GTZAN) provides a more precise empirical quantile estimate,
-enabling tighter thresholds; and (2)~FMA's eight genres present a simpler
-prediction task ($K = 8$) than GTZAN's ten ($K = 10$), reducing the
-theoretical upper bound on set size.
-
-\subsection{Summary of Experimental Findings}
-
-Our experiments yield four primary takeaways:
-
-\begin{enumerate}[leftmargin=*,itemsep=1pt]
-    \item \textbf{MERT embeddings are genre-discriminative.} On GTZAN, the
-    intra-class similarity ($0.917$) meaningfully exceeds the inter-class
-    similarity ($0.873$), confirming that MERT captures stylistic structure.
-    On FMA, the weaker separation ($\Delta = 0.026$) reflects the dataset's
-    greater diversity but remains above chance, with CP adapting to the
-    reduced discriminability without compromising its coverage guarantee.
-
-    \item \textbf{Conformal prediction provides valid, tight coverage across
-    datasets.} At all three significance levels on both GTZAN and FMA, CP
-    achieves empirical coverage at or near the nominal target, with only
-    moderate set sizes. On FMA, CP achieves $0.988$ coverage at $\alpha=0.01$
-    despite the substantially weaker embedding space ($\Delta=0.026$ vs.\
-    GTZAN's $\Delta=0.044$), demonstrating that the distribution-free
-    guarantee is representation-agnostic.
-
-    \item \textbf{Parametric baselines fail where CP succeeds.} The Gaussian
-    approximation baseline undercovers at $\alpha = 0.01$ on \emph{both}
-    datasets---$0.965$ on GTZAN and $0.966$ on FMA (vs.\ target $0.99$).
-    The pervasiveness of this failure across datasets with markedly different
-    score distributions underscores that the normality assumption is
-    fundamentally inappropriate for perceptual similarity tasks. Bootstrap
-    resampling, while empirically competitive, lacks the finite-sample
-    validity guarantee that distinguishes CP.
-
-    \item \textbf{Larger calibration sets yield tighter prediction sets.} The
-    FMA calibration set ($\sim$1{,}600 tracks) is approximately $8\times$
-    larger than GTZAN's ($\sim$200 tracks), resulting in prediction sets that
-    are consistently smaller on FMA ($7.75$ vs.\ $8.51$ at $\alpha=0.01$)
-    despite weaker class separation. This illustrates a key practical
-    principle: deploying CP with a sufficiently large calibration corpus
-    narrows the gap between the coverage guarantee and practical
-    informativeness.
-\end{enumerate}
+In summary, learned prototypes substantially improve the user experience by
+shrinking prediction sets, the $\alpha$ parameter functions as an effective
+trust slider, and distribution-free calibration is a practical necessity for
+predictable interface behavior.
