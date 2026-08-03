@@ -33,7 +33,7 @@ data/gtzan/
 │   └── rock/         (100 x .wav, 999 total valid)
 ```
 
-4. Verify: `python scripts/prepare_gtzan.py`
+1. Verify: `python scripts/prepare_gtzan.py`
 
 ### FMA (Supplementary, 7.2 GB)
 
@@ -100,20 +100,6 @@ python -m pytest tests/ -v
 |---|--------|:---:|:---:|:---:|:---:|
 
 (see outputs/cp_results_fma/baseline_comparison_fma.csv for full results)
-
----
-
-## Paper
-
-```bash
-cd paper
-pdflatex -interaction=nonstopmode main.tex
-bibtex main
-pdflatex -interaction=nonstopmode main.tex
-pdflatex -interaction=nonstopmode main.tex
-```
-
-Output: `paper/main.pdf` (22 pages, IEEE format)
 
 ---
 
