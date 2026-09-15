@@ -1,6 +1,4 @@
 """Step 3: Data preparation - download GTZAN via torchaudio."""
-import os
-import shutil
 import torchaudio
 from pathlib import Path
 

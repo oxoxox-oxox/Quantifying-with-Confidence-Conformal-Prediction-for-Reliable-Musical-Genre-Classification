@@ -3,12 +3,9 @@
 FMA Small: 8000 tracks, 8 genres, ~7.2 GB audio + 342 MB metadata.
 Downloads from University of Lausanne servers.
 """
-import os
 import sys
 import zipfile
-import hashlib
 from pathlib import Path
-from io import StringIO
 
 import numpy as np
 import pandas as pd

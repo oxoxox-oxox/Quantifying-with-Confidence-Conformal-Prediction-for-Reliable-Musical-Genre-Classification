@@ -4,7 +4,6 @@ Compares coverage and set size across datasets, highlighting
 CP's distribution-free guarantee holding for both small (GTZAN 999)
 and large (FMA 8000) datasets.
 """
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -93,7 +92,7 @@ def plot_dataset_set_size_comparison(df):
             a_sub = sub[sub["alpha"] == a]
             means.append(a_sub["avg_set_size"].mean())
             stds.append(a_sub["avg_set_size"].std())
-        bars = ax.bar(
+        _ = ax.bar(
             x + j * width, means, width,
             yerr=stds, color=DATASET_COLORS.get(ds, "#999"),
             alpha=0.75, label=f"{ds} (CP)", capsize=4,
@@ -165,7 +164,6 @@ def print_summary(df):
     print("\n=== DATASET COMPARISON SUMMARY ===")
     for ds in df["dataset"].unique():
         sub = df[df["dataset"] == ds]
-        n = sub.iloc[0]["n_test"] if "n_test" in sub.columns else "?"
         print(f"\n  {ds}:")
         for method in METHODS:
             ms = sub[sub["method"] == method]

@@ -8,7 +8,6 @@ Checks:
 
 Generates labels.csv for downstream CP experiments.
 """
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -62,7 +61,6 @@ def plot_pca(embeddings, labels, label_names):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from matplotlib.lines import Line2D
 
     FIG_DIR.mkdir(parents=True, exist_ok=True)
 

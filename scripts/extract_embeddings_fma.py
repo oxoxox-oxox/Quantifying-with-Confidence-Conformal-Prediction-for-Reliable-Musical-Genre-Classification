@@ -4,10 +4,8 @@ Processes MP3 files (30s clips, 8 genres, ~8000 tracks).
 Uses librosa for MP3 loading (cross-platform) + same MERT extraction pipeline as GTZAN.
 Saves embeddings + metadata + labels to outputs/embeddings_fma/.
 """
-import os
 import sys
 import time
-import json
 import warnings
 from pathlib import Path
 

@@ -10,3 +10,16 @@ from .conformal import (
     linear_probe_pipeline,
 )
 from .evaluation import evaluate
+
+__all__ = [
+    "load_data",
+    "stratified_split",
+    "compute_centroids",
+    "compute_nonconformity_scores",
+    "compute_alpha_scores_test",
+    "cp_prediction",
+    "bootstrap_prediction",
+    "gaussian_prediction",
+    "linear_probe_pipeline",
+    "evaluate",
+]

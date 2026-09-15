@@ -48,9 +48,11 @@ signal, and $\alpha$ serves as a user-adjustable trust slider.
 
 We evaluate LP-Cos-CP on GTZAN ($N=999$, $K=10$ genres) and FMA Small
 ($N=7{,}994$, $K=8$ genres). At $\alpha = 0.10$, the average prediction set
-contains 2--3 genres (vs.\ 5--6 for centroid-based prototypes), narrowing the
-user's attention from the full label space to a focused candidate list while
-maintaining empirical coverage at or above nominal targets. A controlled
+on GTZAN contains 2--3 genres (vs.\ 5--6 for centroid-based prototypes), narrowing the
+user's attention to a focused candidate list.
+Crucially, on FMA Small, where the base classifier's Top-1 accuracy drops to 53.5\%,
+the prediction set adapts by expanding to an average size of 4.1. This ensures that the
+system maintains empirical coverage at or above nominal targets even when model uncertainty is high, effectively replacing silent misclassifications with honest abstentions. A controlled
 comparison of Bootstrap and Gaussian calibration reveals that only
 distribution-free CP calibration produces predictable, usable interface
 behavior. Our contributions are:

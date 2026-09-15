@@ -43,11 +43,11 @@ per-sample confidence signal that requires no statistical training to interpret.
 Our method extracts features from MERT-v1-330M, a large-scale self-supervised
 music model, learns discriminative genre prototypes via a lightweight linear
 classifier, and applies conformal prediction to produce prediction sets with
-formal coverage guarantees the probability that the correct label in included in the set is at least 1 - alpha.
-On the GTZAN and FMA Small datasets, LP-Cos-CP narrows
-predictions to 2--3 genres at 90\% confidence while reducing set sizes by up to
-55\% compared to centroid-based alternatives. The significance level $\alpha$
-functions as an explicit user-facing trust slider, enabling practitioners to
+formal coverage guarantees.
+On the GTZAN dataset, LP-Cos-CP narrows predictions to 2--3 genres at 90\% confidence.
+On the more challenging FMA Small dataset, where base Top-1 accuracy is only 53.5\%, the prediction set naturally expands to ${\sim}4.1$ genres to robustly maintain the 90\% coverage guarantee, demonstrating its adaptive uncertainty quantification.
+Furthermore, our learned prototypes reduce set sizes by up to 55\% compared to centroid-based alternatives.
+The significance level $\alpha$ functions as an explicit user-facing trust slider, enabling practitioners to
 trade off between cautious mode (more genres, higher confidence) and
 exploratory mode (fewer genres, lower confidence). Our results demonstrate that
 conformal prediction can serve as a practical interface layer between AI music

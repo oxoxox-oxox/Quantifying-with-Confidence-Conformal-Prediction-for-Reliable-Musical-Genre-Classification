@@ -1,6 +1,5 @@
 """Step 2: MERT model loading + GPU inference verification."""
 import torch
-import torchaudio
 from transformers import AutoModel, Wav2Vec2FeatureExtractor
 
 MODEL_NAME = "m-a-p/MERT-v1-330M"

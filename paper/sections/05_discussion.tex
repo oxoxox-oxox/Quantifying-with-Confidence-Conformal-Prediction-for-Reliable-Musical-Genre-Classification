@@ -11,13 +11,8 @@ principles and discuss limitations.
 
 \subsection{Design Implications}
 
-\textbf{Prediction set size is a universal confidence indicator.} Set
-cardinality communicates confidence without statistical training: $|\Gamma| = 1$
-signals certainty, $|\Gamma| = 6$ signals ambiguity. This maps to Miller's
-observation that humans reason more reliably about categorical sets than
-continuous probabilities~\cite{miller2019explanation}. A UI showing a track's
-prediction set alongside its single-label prediction enables users to calibrate
-trust at a glance.
+\textbf{Prediction set size is an intuitive confidence indicator.} 
+Existing approaches to communicating model uncertainty often rely on calibrated confidence displays (e.g., exposing raw probability distributions) or selective prediction (e.g., abstaining entirely when uncertain)~\cite{bhatt2021uncertainty,geifman2017selective}. However, continuous probability distributions are often difficult for lay users to interpret correctly~\cite{padilla2021uncertainty}, and pure selective prediction can disrupt workflows by offering no guidance. CP prediction sets provide a powerful middle ground: set cardinality translates complex model uncertainty into a discrete, actionable format without requiring statistical training. $|\Gamma| = 1$ signals certainty, while $|\Gamma| \ge 4$ signals ambiguity. This aligns with Miller's observation that humans reason more reliably about categorical sets than continuous probabilities~\cite{miller2019explanation}. A UI showing a track's valid prediction set enables users to calibrate trust at a glance.
 
 \textbf{$\alpha$ provides a direct user control.} The significance level maps
 to an answerable question: ``What risk of missing the true genre am I willing to

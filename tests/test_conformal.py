@@ -1,7 +1,6 @@
 """Tests for conformal prediction and baseline methods."""
 
 import numpy as np
-import pytest
 import torch
 from src.conformal import (
     compute_centroids,
@@ -11,7 +10,6 @@ from src.conformal import (
     gaussian_prediction,
     LinearProbe,
     linear_probe_pipeline,
-    compute_alpha_scores_test,
 )
 from src.evaluation import evaluate
 

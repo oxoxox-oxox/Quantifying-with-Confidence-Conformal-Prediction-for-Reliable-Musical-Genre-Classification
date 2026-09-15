@@ -30,7 +30,7 @@ from src import (
 EMB_DIR = ROOT / "outputs" / "embeddings_fma"
 OUT_DIR = ROOT / "outputs" / "cp_results_fma"
 
-ALPHAS = [0.01, 0.05, 0.10]
+ALPHAS = [0.05, 0.10]
 N_SPLITS = 5
 REF_RATIO = 0.6
 CAL_RATIO = 0.2
@@ -83,17 +83,20 @@ def main():
             seed=42 + split,
         )
 
-        cos_cal, cos_alpha, smx_cal, smx_alpha = linear_probe_pipeline(
+        cos_cal, cos_alpha, smx_cal, smx_alpha, cal_labels = linear_probe_pipeline(
             emb, labels, ref_idx, cal_idx, test_idx, n_classes,
             seed=42 + split,
         )
 
         true_test = labels[test_idx]
 
+        top1_preds = np.argmin(smx_alpha, axis=1)
+        top1_acc = (top1_preds == true_test).mean()
+
         for alpha in ALPHAS:
-            lp_cos_sets = cp_prediction(cos_alpha, cos_cal, alpha)
-            lp_smx_boot_sets = bootstrap_prediction(smx_alpha, smx_cal, alpha, N_BOOTSTRAP)
-            lp_smx_gauss_sets = gaussian_prediction(smx_alpha, smx_cal, alpha)
+            lp_cos_sets = cp_prediction(cos_alpha, cos_cal, cal_labels, alpha)
+            lp_smx_boot_sets = bootstrap_prediction(smx_alpha, smx_cal, cal_labels, alpha, N_BOOTSTRAP)
+            lp_smx_gauss_sets = gaussian_prediction(smx_alpha, smx_cal, cal_labels, alpha)
 
             for method, pred_sets in zip(
                 methods,
@@ -105,6 +108,7 @@ def main():
                     "coverage": cov, "avg_set_size": avg_sz,
                     "empty_sets": empty, "singleton_sets": sing,
                     "n_test": len(test_idx),
+                    "top1_acc": top1_acc,
                 })
 
     df = pd.DataFrame(all_rows)
@@ -112,6 +116,10 @@ def main():
     print("\n" + "=" * 60)
     print("FMA SMALL -- LP + CP EXPERIMENT RESULTS")
     print("=" * 60)
+
+    mean_top1 = df["top1_acc"].mean()
+    std_top1 = df["top1_acc"].std()
+    print(f"\nBase Model (Linear Probe) Top-1 Accuracy: {mean_top1:.3f} +/- {std_top1:.3f}")
 
     for alpha in ALPHAS:
         print(f"\n--- a = {alpha:.2f} (target coverage = {1-alpha:.2f}) ---")

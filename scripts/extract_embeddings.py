@@ -3,10 +3,7 @@
 Processes 1000 × 30s WAV files in chunked segments (10s windows, 5s overlap).
 Saves (1000, 1024) float32 embeddings + metadata CSV.
 """
-import os
-import sys
 import time
-import json
 import warnings
 from pathlib import Path
 

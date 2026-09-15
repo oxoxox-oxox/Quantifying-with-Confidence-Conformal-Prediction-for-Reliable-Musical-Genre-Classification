@@ -5,7 +5,6 @@ Figures:
   2. Prediction set size boxplot — per alpha level
   3. Method comparison — coverage deviation from nominal
 """
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -130,7 +129,7 @@ def plot_coverage_deviation(df):
         for a in ALPHAS:
             cov = sub[sub["alpha"] == a]["coverage"].mean()
             devs.append(cov - (1.0 - a))
-        bars = ax.bar(
+        _ = ax.bar(
             x + j * width, devs, width, color=COLORS[method],
             alpha=0.75, label=method
         )

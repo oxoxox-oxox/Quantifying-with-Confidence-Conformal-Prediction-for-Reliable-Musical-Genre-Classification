@@ -39,41 +39,61 @@ def compute_alpha_scores_test(emb, test_idx, centroids, n_classes):
     ])
 
 
-def cp_prediction(alpha_scores_test, cal_scores, alpha):
-    n_cal = len(cal_scores)
+def cp_prediction(alpha_scores_test, cal_scores, cal_labels, alpha):
     pred_sets = []
     for scores in alpha_scores_test:
         s = []
         for k, v in enumerate(scores):
-            p = (np.sum(cal_scores >= v) + 1) / (n_cal + 1)
+            class_cal_scores = cal_scores[cal_labels == k]
+            n_cal_k = len(class_cal_scores)
+            if n_cal_k == 0:
+                s.append(k)
+                continue
+            p = (np.sum(class_cal_scores >= v) + 1) / (n_cal_k + 1)
             if p > alpha:
                 s.append(k)
         pred_sets.append(s)
     return pred_sets
 
 
-def bootstrap_prediction(alpha_scores_test, cal_scores, alpha, n_boot=1000):
-    n_cal = len(cal_scores)
+def bootstrap_prediction(alpha_scores_test, cal_scores, cal_labels, alpha, n_boot=1000):
     rng = np.random.RandomState(42)
-    thresholds = []
-    for _ in range(n_boot):
-        boot = cal_scores[rng.choice(n_cal, size=n_cal, replace=True)]
-        thresholds.append(np.quantile(boot, 1.0 - alpha))
-    threshold = np.mean(thresholds)
+    n_classes = alpha_scores_test.shape[1]
+    class_thresholds = {}
+    for k in range(n_classes):
+        class_cal_scores = cal_scores[cal_labels == k]
+        n_cal_k = len(class_cal_scores)
+        if n_cal_k == 0:
+            class_thresholds[k] = np.inf
+            continue
+        thresholds = []
+        for _ in range(n_boot):
+            boot = class_cal_scores[rng.choice(n_cal_k, size=n_cal_k, replace=True)]
+            thresholds.append(np.quantile(boot, 1.0 - alpha))
+        class_thresholds[k] = np.mean(thresholds)
+        
     pred_sets = []
     for scores in alpha_scores_test:
-        s = [k for k, v in enumerate(scores) if v <= threshold]
+        s = [k for k, v in enumerate(scores) if v <= class_thresholds[k]]
         pred_sets.append(s)
     return pred_sets
 
 
-def gaussian_prediction(alpha_scores_test, cal_scores, alpha):
-    mu, sigma = np.mean(cal_scores), np.std(cal_scores, ddof=1)
+def gaussian_prediction(alpha_scores_test, cal_scores, cal_labels, alpha):
+    n_classes = alpha_scores_test.shape[1]
+    class_thresholds = {}
     z = stats.norm.ppf(1.0 - alpha)
-    threshold = mu + z * sigma
+    for k in range(n_classes):
+        class_cal_scores = cal_scores[cal_labels == k]
+        if len(class_cal_scores) < 2:
+            class_thresholds[k] = np.inf
+            continue
+        mu, sigma = np.mean(class_cal_scores), np.std(class_cal_scores, ddof=1)
+        class_thresholds[k] = mu + z * sigma
+        
     pred_sets = []
     for scores in alpha_scores_test:
-        s = [k for k, v in enumerate(scores) if v <= threshold]
+        s = [k for k, v in enumerate(scores) if v <= class_thresholds[k]]
         pred_sets.append(s)
     return pred_sets
 
@@ -134,5 +154,4 @@ def linear_probe_pipeline(emb, labels, ref_idx, cal_idx, test_idx, n_classes,
         for i in range(len(cal_idx))
     ])
     smx_alpha_test = 1.0 - test_probs
-
-    return cos_cal_scores, cos_alpha_test, smx_cal_scores, smx_alpha_test
+    return cos_cal_scores, cos_alpha_test, smx_cal_scores, smx_alpha_test, labels[cal_idx]

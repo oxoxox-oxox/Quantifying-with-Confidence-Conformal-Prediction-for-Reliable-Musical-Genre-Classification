@@ -1,7 +1,6 @@
 """Tests for stratified 60/20/20 data splitting."""
 
 import numpy as np
-import pytest
 from src.split_utils import stratified_split
 
 
